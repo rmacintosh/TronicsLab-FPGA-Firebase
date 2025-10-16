@@ -1,3 +1,4 @@
+
 "use client"
 
 import { notFound } from "next/navigation";
@@ -19,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const { articles, comments } = useData();
+  const { articles, comments, categories } = useData();
   const article = articles.find((a) => a.slug === slug);
   const { user } = useUser();
   const { firestore } = useFirebase();
@@ -30,6 +31,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
     notFound();
   }
   
+  const category = categories.find(c => c.slug === article.category);
   const articleComments = comments.filter(c => c.articleSlug === article.slug);
   const author = {
       name: article.author,
@@ -74,7 +76,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
     <div className="max-w-4xl mx-auto">
       <article className="space-y-8">
         <header className="space-y-4">
-          <Badge variant="outline" className="text-sm">{article.subCategory}</Badge>
+          <Badge variant="outline" className="text-sm">{category?.name}</Badge>
           <h1 className="font-headline text-4xl md:text-5xl font-bold tracking-tight">{article.title}</h1>
           <p className="text-lg text-muted-foreground">{article.description}</p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">

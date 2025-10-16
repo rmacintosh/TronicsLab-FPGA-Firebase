@@ -13,7 +13,7 @@ import { useData } from "../providers/data-provider"
 
 export default function MainSidebar() {
     const pathname = usePathname();
-    const { categories, subCategories, articles, isAdmin } = useData();
+    const { categories, articles, isAdmin } = useData();
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
@@ -21,12 +21,8 @@ export default function MainSidebar() {
         { href: "/blog", label: "Blog", icon: Newspaper },
     ];
 
-    const getArticlesForSubCategory = (categorySlug: string, subCategoryName: string) => {
-        return articles.filter(a => a.category === categorySlug && a.subCategory === subCategoryName);
-    }
-    
-    const getSubcategoriesForCategory = (categorySlug: string) => {
-        return subCategories.filter(sc => sc.parentCategory === categorySlug);
+    const getArticlesForCategory = (categorySlug: string) => {
+        return articles.filter(a => a.category === categorySlug);
     }
     
     return (
@@ -67,32 +63,17 @@ export default function MainSidebar() {
                                 {category.name}
                             </AccordionTrigger>
                             <AccordionContent>
-                                {getSubcategoriesForCategory(category.slug).length > 0 && (
-                                    <SidebarMenuSub>
-                                        {getSubcategoriesForCategory(category.slug).map(sub => (
-                                            <Accordion type="single" collapsible key={sub.id}>
-                                                <AccordionItem value={sub.slug}>
-                                                     <AccordionTrigger className="text-xs font-medium text-muted-foreground hover:no-underline hover:text-foreground p-2 rounded-md">
-                                                        {sub.name}
-                                                    </AccordionTrigger>
-                                                    <AccordionContent>
-                                                        <SidebarMenuSub>
-                                                            {getArticlesForSubCategory(category.slug, sub.name).map(article => (
-                                                                <SidebarMenuSubItem key={article.id}>
-                                                                    <SidebarMenuSubButton asChild isActive={pathname.endsWith(article.slug)}>
-                                                                        <Link href={`/articles/${article.slug}`}>
-                                                                            {article.title}
-                                                                        </Link>
-                                                                    </SidebarMenuSubButton>
-                                                                </SidebarMenuSubItem>
-                                                            ))}
-                                                        </SidebarMenuSub>
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            </Accordion>
-                                        ))}
-                                    </SidebarMenuSub>
-                                )}
+                                <SidebarMenuSub>
+                                    {getArticlesForCategory(category.slug).map(article => (
+                                        <SidebarMenuSubItem key={article.id}>
+                                            <SidebarMenuSubButton asChild isActive={pathname.endsWith(article.slug)}>
+                                                <Link href={`/articles/${article.slug}`}>
+                                                    {article.title}
+                                                </Link>
+                                            </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
+                                    ))}
+                                </SidebarMenuSub>
                             </AccordionContent>
                         </AccordionItem>
                     ))}
@@ -121,5 +102,3 @@ export default function MainSidebar() {
         </Sidebar>
     )
 }
-
-    

@@ -4,7 +4,6 @@ export interface Article {
   title: string;
   description: string;
   category: string;
-  subCategory: string;
   author: string;
   date: string;
   views: number;
@@ -21,14 +20,6 @@ export interface Category {
   name: string;
   slug: string;
 }
-
-export interface SubCategory {
-    id: string;
-    name: string;
-    slug: string;
-    parentCategory: string;
-}
-
 
 export interface Comment {
   id: string;
