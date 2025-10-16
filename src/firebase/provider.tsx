@@ -65,7 +65,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   auth,
 }) => {
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
-    user: null,
+    user: auth.currentUser, // Initialize with current user
     claims: null,
     isUserLoading: true, // Start loading until first auth event
     userError: null,
@@ -73,19 +73,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
-    if (!auth) { 
-      setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
-      return;
-    }
-
-    setUserAuthState({ user: null, claims: null, isUserLoading: true, userError: null });
+    // Set loading to true on initial run
+    setUserAuthState(current => ({ ...current, isUserLoading: true, userError: null }));
 
     const unsubscribe = onIdTokenChanged(
       auth,
       async (firebaseUser) => { 
         if (firebaseUser) {
-          const idTokenResult = await firebaseUser.getIdTokenResult();
-          setUserAuthState({ user: firebaseUser, claims: idTokenResult, isUserLoading: false, userError: null });
+          try {
+            const idTokenResult = await firebaseUser.getIdTokenResult();
+            setUserAuthState({ user: firebaseUser, claims: idTokenResult, isUserLoading: false, userError: null });
+          } catch (error) {
+             console.error("FirebaseProvider: Error getting ID token:", error);
+             setUserAuthState({ user: firebaseUser, claims: null, isUserLoading: false, userError: error as Error });
+          }
         } else {
           setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: null });
         }
@@ -95,17 +96,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: error });
       }
     );
-    return () => unsubscribe(); // Cleanup
-  }, [auth]); // Depends on the auth instance
 
-  // Memoize the context value
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [auth]); // Re-run effect if the auth instance changes
+
+  // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo((): FirebaseContextState => {
-    const servicesAvailable = !!(firebaseApp && firestore && auth);
     return {
-      areServicesAvailable: servicesAvailable,
-      firebaseApp: servicesAvailable ? firebaseApp : null,
-      firestore: servicesAvailable ? firestore : null,
-      auth: servicesAvailable ? auth : null,
+      areServicesAvailable: !!(firebaseApp && firestore && auth),
+      firebaseApp,
+      firestore,
+      auth,
       user: userAuthState.user,
       claims: userAuthState.claims,
       isUserLoading: userAuthState.isUserLoading,
@@ -182,6 +184,10 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
  * @returns {UserHookResult} Object with user, claims, isUserLoading, userError.
  */
 export const useUser = (): UserHookResult => { 
-  const { user, claims, isUserLoading, userError } = useFirebase(); // Leverages the main hook
+  const context = useContext(FirebaseContext);
+   if (context === undefined) {
+    throw new Error('useUser must be used within a FirebaseProvider.');
+  }
+  const { user, claims, isUserLoading, userError } = context; 
   return { user, claims, isUserLoading, userError };
 };
