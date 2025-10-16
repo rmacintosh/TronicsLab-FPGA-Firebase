@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link"
@@ -16,11 +17,11 @@ import { Input } from "@/components/ui/input"
 import { Cpu } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast";
-import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
 import { useAuth, useFirebase, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { setDoc, doc } from "firebase/firestore";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const signupSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -50,15 +51,14 @@ export default function SignupPage() {
 
   const onSubmit = async (values: z.infer<typeof signupSchema>) => {
     try {
-        await initiateEmailSignUp(auth, values.email, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
 
-        const userCredential = auth.currentUser;
-        if (userCredential && firestore) {
-            const userRef = doc(firestore, "users", userCredential.uid);
+        if (userCredential.user && firestore) {
+            const userRef = doc(firestore, "users", userCredential.user.uid);
             const isAdmin = values.email === 'rmacintosh@gmail.com';
 
             await setDoc(userRef, {
-                uid: userCredential.uid,
+                uid: userCredential.user.uid,
                 email: values.email,
                 role: isAdmin ? 'admin' : 'user',
                 createdAt: new Date().toISOString(),
@@ -71,10 +71,14 @@ export default function SignupPage() {
         });
         router.push('/');
     } catch (error: any) {
+      let description = "An unexpected error occurred.";
+      if (error.code === 'auth/email-already-in-use') {
+        description = "This email address is already in use.";
+      }
       toast({
         variant: "destructive",
         title: "Sign-up Failed",
-        description: error.message || "An unexpected error occurred.",
+        description: description,
       });
     }
   };
