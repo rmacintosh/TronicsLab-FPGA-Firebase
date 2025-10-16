@@ -8,7 +8,6 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
-import { credential } from 'firebase-admin';
 
 const MakeAdminOutputSchema = z.object({
   success: z.boolean(),
@@ -34,11 +33,20 @@ const makeAdminFlow = ai.defineFlow(
     name: 'makeAdminFlow',
     inputSchema: z.void(),
     outputSchema: MakeAdminOutputSchema,
+    auth: (auth) => {
+        if (!auth) {
+            throw new Error('Authentication is required to perform this action.');
+        }
+    },
   },
   async (_, { auth }) => {
     
     if (!auth) {
-      throw new Error('Authentication context is required.');
+      // This check is redundant due to the auth policy above, but serves as a safeguard.
+      return {
+        success: false,
+        message: 'Authentication context is required.',
+      };
     }
 
     const callingUid = auth.uid;
