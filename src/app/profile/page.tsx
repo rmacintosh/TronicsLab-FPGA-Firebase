@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useUser } from "@/firebase";
+import { useUser, useFirebase, setDocumentNonBlocking } from "@/firebase";
 import { useData } from "@/components/providers/data-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
@@ -10,17 +10,34 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function ProfilePage() {
     const { user, isUserLoading } = useUser();
     const { comments, articles } = useData();
     const router = useRouter();
+    const { firestore } = useFirebase();
 
     useEffect(() => {
         if (!isUserLoading && !user) {
             router.push('/login');
         }
-    }, [user, isUserLoading, router]);
+
+        // When the user is loaded, check if their user document exists and create it if not.
+        if (user && firestore) {
+            const userRef = doc(firestore, "users", user.uid);
+            getDoc(userRef).then(docSnap => {
+                if (!docSnap.exists()) {
+                    // Document doesn't exist, so create it.
+                    setDocumentNonBlocking(userRef, {
+                        uid: user.uid,
+                        email: user.email,
+                        createdAt: new Date().toISOString(),
+                    }, { merge: true });
+                }
+            });
+        }
+    }, [user, isUserLoading, router, firestore]);
 
     if (isUserLoading || !user) {
         return <div>Loading...</div>; // Or a spinner component

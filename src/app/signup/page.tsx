@@ -20,7 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth, useFirebase, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { setDoc, doc } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const signupSchema = z.object({
@@ -51,19 +50,7 @@ export default function SignupPage() {
 
   const onSubmit = async (values: z.infer<typeof signupSchema>) => {
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const newUser = userCredential.user;
-
-        // Create a user profile document in Firestore, but do not store roles here.
-        if (newUser && firestore) {
-            const userRef = doc(firestore, "users", newUser.uid);
-            await setDoc(userRef, {
-                uid: newUser.uid,
-                email: values.email,
-                createdAt: new Date().toISOString(),
-            });
-        }
-      
+        await createUserWithEmailAndPassword(auth, values.email, values.password);
         toast({
             title: "Account Created",
             description: "You have successfully signed up!",
