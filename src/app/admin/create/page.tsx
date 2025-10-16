@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { useForm } from "react-hook-form";
@@ -25,12 +26,11 @@ const articleSchema = z.object({
     message: "New category name cannot be empty.",
     path: ["newCategory"],
 }).refine(data => {
-    if (data.category !== 'new' && data.subCategory !== 'new') return true; // Both existing
-    if (data.category === 'new' && !data.subCategory) return true; // New category, no subcategory selected
-    if (data.category === 'new' && data.subCategory !== 'new') return true; // New category, existing sub (unlikely but valid)
-    if (data.category === 'new' && data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0) return true; // Both new
+    if (data.category !== 'new' && data.subCategory !== 'new') return true;
+    if (data.category === 'new' && !data.subCategory) return true;
+    if (data.category === 'new' && data.subCategory !== 'new') return true;
+    if (data.category === 'new' && data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0) return true;
 
-    // Existing category, new subcategory
     if (data.category && data.category !== 'new') {
         if (!data.subCategory) return true;
         if (data.subCategory !== 'new') return true;
@@ -46,7 +46,7 @@ const articleSchema = z.object({
 
 export default function CreateArticlePage() {
     const { toast } = useToast();
-    const { categories, addArticle, addCategory, addSubCategory } = useData();
+    const { categories, setCategories, addArticle, articles } = useData();
 
     const form = useForm<z.infer<typeof articleSchema>>({
         resolver: zodResolver(articleSchema),
@@ -91,28 +91,49 @@ export default function CreateArticlePage() {
 
     function onSubmit(values: z.infer<typeof articleSchema>) {
         let finalCategorySlug: string;
-        let finalSubCategoryName = "";
-    
-        // Determine the category slug first
+        let finalSubCategoryName: string;
+        let finalCategoryName: string;
+        let updatedCategories = { ...categories };
+        
+        // Step 1: Determine the final category and update categories state if new
         if (values.category === 'new' && values.newCategory) {
+            finalCategoryName = values.newCategory;
             finalCategorySlug = slugify(values.newCategory);
-            addCategory(finalCategorySlug, values.newCategory);
+            
+            if (!updatedCategories[finalCategorySlug]) {
+                updatedCategories = {
+                    ...updatedCategories,
+                    [finalCategorySlug]: { name: finalCategoryName, subCategories: [] },
+                };
+            }
         } else {
             finalCategorySlug = values.category;
+            finalCategoryName = updatedCategories[finalCategorySlug as keyof typeof updatedCategories]?.name || '';
         }
     
-        // Handle sub-category
+        // Step 2: Determine the final sub-category and update categories state if new
         if (values.subCategory === 'new' && values.newSubCategory) {
-            const newSubCategorySlug = slugify(values.newSubCategory);
             finalSubCategoryName = values.newSubCategory;
-            // Use the finalCategorySlug determined above
-            addSubCategory(finalCategorySlug, { name: values.newSubCategory, slug: newSubCategorySlug });
+            const newSubCategorySlug = slugify(values.newSubCategory);
+            
+            const categoryToUpdate = updatedCategories[finalCategorySlug as keyof typeof updatedCategories];
+            if (categoryToUpdate) {
+                const subCategoryExists = categoryToUpdate.subCategories.some(sc => sc.slug === newSubCategorySlug);
+                if (!subCategoryExists) {
+                    categoryToUpdate.subCategories.push({ name: finalSubCategoryName, slug: newSubCategorySlug });
+                }
+            }
         } else if (values.subCategory) {
-            // Find subcategory name from existing data
-            const subCatData = categories[finalCategorySlug as keyof typeof categories]?.subCategories.find(sc => sc.slug === values.subCategory);
+            const subCatData = updatedCategories[finalCategorySlug as keyof typeof updatedCategories]?.subCategories.find(sc => sc.slug === values.subCategory);
             finalSubCategoryName = subCatData?.name || "";
+        } else {
+            finalSubCategoryName = "";
         }
     
+        // Step 3: Commit the updated categories to the global state
+        setCategories(updatedCategories);
+
+        // Step 4: Create the new article object
         const newArticle = {
             slug: slugify(values.title),
             title: values.title,
@@ -124,14 +145,16 @@ export default function CreateArticlePage() {
             views: 0,
             image: {
                 id: 'new-article',
-                imageUrl: 'https://picsum.photos/seed/new-article/600/400',
+                imageUrl: `https://picsum.photos/seed/${articles.length + 1}/600/400`,
                 imageHint: 'abstract tech',
             },
             content: `<p>${values.content}</p>`,
         };
     
+        // Step 5: Add the new article to the global state
         addArticle(newArticle);
     
+        // Step 6: Show confirmation and reset the form
         toast({
             title: "Article Published!",
             description: `The article "${values.title}" has been successfully published.`,
@@ -287,3 +310,5 @@ export default function CreateArticlePage() {
         </div>
     )
 }
+
+    
