@@ -40,7 +40,7 @@ export default function MainSidebar() {
         return subCategories.filter(sc => sc.parentCategory === categorySlug);
     }
     
-    const isAdmin = userData?.role === 'admin';
+    const isAdmin = userData?.role === 'admin' && !!user;
 
     return (
         <Sidebar>
