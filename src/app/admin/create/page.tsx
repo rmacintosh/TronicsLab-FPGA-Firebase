@@ -65,8 +65,11 @@ export default function CreateArticlePage() {
     const selectedSubCategory = form.watch("subCategory");
     
     const isNewCategory = selectedCategory === 'new';
-    const currentCategoryKey = selectedCategory as keyof typeof categories;
-    const subcategories = categories[currentCategoryKey]?.subCategories || [];
+    
+    const subcategories = (selectedCategory && categories[selectedCategory as keyof typeof categories])
+        ? categories[selectedCategory as keyof typeof categories].subCategories
+        : [];
+
     const isSubCategoryDisabled = !selectedCategory || (isNewCategory && !newCategoryValue);
 
 
@@ -87,31 +90,29 @@ export default function CreateArticlePage() {
     }
 
     function onSubmit(values: z.infer<typeof articleSchema>) {
-        let finalCategorySlug = values.category;
-        let finalSubCategorySlug = values.subCategory;
+        let finalCategorySlug: string;
         let finalSubCategoryName = "";
-        let updatedCategories = categories;
-
-        // Step 1: Handle new category creation
+    
+        // Determine the category slug first
         if (values.category === 'new' && values.newCategory) {
-            const newCategorySlug = slugify(values.newCategory);
-            updatedCategories = addCategory(newCategorySlug, values.newCategory);
-            finalCategorySlug = newCategorySlug;
+            finalCategorySlug = slugify(values.newCategory);
+            addCategory(finalCategorySlug, values.newCategory);
+        } else {
+            finalCategorySlug = values.category;
         }
-        
-        // Step 2: Handle new sub-category creation
+    
+        // Handle sub-category
         if (values.subCategory === 'new' && values.newSubCategory) {
             const newSubCategorySlug = slugify(values.newSubCategory);
-            // This is the key fix: We call addSubCategory only once.
-            addSubCategory(finalCategorySlug, { name: values.newSubCategory, slug: newSubCategorySlug });
-            finalSubCategorySlug = newSubCategorySlug;
             finalSubCategoryName = values.newSubCategory;
+            // Use the finalCategorySlug determined above
+            addSubCategory(finalCategorySlug, { name: values.newSubCategory, slug: newSubCategorySlug });
         } else if (values.subCategory) {
-             const subCatData = updatedCategories[finalCategorySlug as keyof typeof updatedCategories]?.subCategories.find(sc => sc.slug === values.subCategory);
-             finalSubCategoryName = subCatData?.name || "";
+            // Find subcategory name from existing data
+            const subCatData = categories[finalCategorySlug as keyof typeof categories]?.subCategories.find(sc => sc.slug === values.subCategory);
+            finalSubCategoryName = subCatData?.name || "";
         }
-
-
+    
         const newArticle = {
             slug: slugify(values.title),
             title: values.title,
@@ -128,9 +129,9 @@ export default function CreateArticlePage() {
             },
             content: `<p>${values.content}</p>`,
         };
-
+    
         addArticle(newArticle);
-
+    
         toast({
             title: "Article Published!",
             description: `The article "${values.title}" has been successfully published.`,
@@ -220,13 +221,13 @@ export default function CreateArticlePage() {
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {!isNewCategory && selectedCategory && subcategories.map(sub => (
+                                            {subcategories.map(sub => (
                                                 <SelectItem key={sub.slug} value={sub.slug}>{sub.name}</SelectItem>
                                             ))}
-                                            <SelectItem value="new">Create new sub-category...</SelectItem>
+                                            {!isSubCategoryDisabled && <SelectItem value="new">Create new sub-category...</SelectItem>}
                                         </SelectContent>
                                       </Select>
-                                      {selectedSubCategory === 'new' && (
+                                      {selectedSubCategory === 'new' && !isSubCategoryDisabled && (
                                         <FormField
                                           control={form.control}
                                           name="newSubCategory"
