@@ -9,12 +9,13 @@ import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { ai } from '../genkit';
-import { createAction } from '@genkit-ai/next/client';
 
 const MakeAdminOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
 });
+
+type MakeAdminOutput = z.infer<typeof MakeAdminOutputSchema>;
 
 // Ensure Firebase Admin is initialized only once.
 function initializeFirebaseAdmin(): App {
@@ -96,4 +97,6 @@ const makeAdminFlow = ai.defineFlow(
 );
 
 
-export const makeAdmin = createAction(makeAdminFlow);
+export async function makeAdmin(input: void): Promise<MakeAdminOutput> {
+    return makeAdminFlow(input);
+}

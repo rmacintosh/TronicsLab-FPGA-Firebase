@@ -28,8 +28,7 @@ export default function MakeAdminPage() {
 
     setIsLoading(true);
     try {
-      // Note: We are passing an empty object as the input to the action.
-      const result = await makeAdmin({});
+      const result = await makeAdmin();
       if (result.success) {
         // Force a refresh of the user's ID token to get the new custom claim.
         await user.getIdToken(true);
