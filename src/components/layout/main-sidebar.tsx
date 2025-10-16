@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -9,9 +10,8 @@ import { usePathname } from "next/navigation"
 import { UserNav } from "../user-nav"
 import { ThemeToggle } from "../theme-toggle"
 import { useData } from "../providers/data-provider"
-import { useDoc, useFirebase, useUser } from "@/firebase"
+import { useDoc, useFirebase, useMemoFirebase, useUser } from "@/firebase"
 import { doc } from "firebase/firestore"
-import { useMemo } from "react"
 
 export default function MainSidebar() {
     const pathname = usePathname();
@@ -19,7 +19,7 @@ export default function MainSidebar() {
     const { user } = useUser();
     const { firestore } = useFirebase();
 
-    const userDocRef = useMemo(() => {
+    const userDocRef = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
