@@ -5,7 +5,7 @@
  * This is a secure, server-side operation.
  */
 
-import { ai } from '@/ai/genkit';
+import { defineFlow } from '@genkit-ai/next/server';
 import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
@@ -25,11 +25,7 @@ function initializeFirebaseAdmin(): App {
     return initializeApp();
 }
 
-export async function makeAdmin(): Promise<z.infer<typeof MakeAdminOutputSchema>> {
-  return makeAdminFlow();
-}
-
-const makeAdminFlow = ai.defineFlow(
+export const makeAdmin = defineFlow(
   {
     name: 'makeAdminFlow',
     inputSchema: z.void(),
