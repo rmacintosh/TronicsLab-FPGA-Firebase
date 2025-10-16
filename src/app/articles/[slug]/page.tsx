@@ -12,7 +12,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { CodeBlock } from "@/components/code-block";
 import { useData } from "@/components/providers/data-provider";
 import { use } from "react";
 
@@ -69,25 +68,6 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
         />
 
         <div className="prose prose-lg dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
-        
-        <CodeBlock code={
-`module led_blinker(
-    input clk,
-    output reg led
-);
-
-reg [26:0] counter;
-
-always @(posedge clk) begin
-    counter <= counter + 1;
-    if (counter == 25000000) begin
-        led <= ~led;
-        counter <= 0;
-    end
-end
-
-endmodule
-`} language="verilog" />
         
         <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 p-8 text-center">
             <div className="space-y-4">
