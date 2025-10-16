@@ -1,44 +1,29 @@
 
 "use client";
 
-import { useUser, useDoc, useFirebase, useMemoFirebase } from "@/firebase";
+import { useData } from "@/components/providers/data-provider";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { doc } from "firebase/firestore";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading } = useUser();
-  const { firestore } = useFirebase();
   const router = useRouter();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user?.uid]);
-
-  const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
-
-  const isCheckingAuth = isUserLoading || isRoleLoading;
-  const isAdmin = userData?.role === 'admin';
+  const { isAdmin, isRoleLoading } = useData();
 
   useEffect(() => {
-    // Only perform actions *after* all loading is complete.
-    if (!isCheckingAuth) {
-      // If loading is done and the user is not an admin, redirect them.
-      if (!isAdmin) {
-        router.replace('/');
-      }
+    // If the role check is complete and the user is not an admin, redirect them.
+    if (!isRoleLoading && !isAdmin) {
+      router.replace('/');
     }
-  }, [isCheckingAuth, isAdmin, router]);
+  }, [isRoleLoading, isAdmin, router]);
 
-  // While checking authentication or if the user is not an admin (and the redirect is in progress),
-  // show a skeleton loader. This prevents rendering the children for non-admins.
-  if (isCheckingAuth || !isAdmin) {
+  // While we are checking for the role, or if the user is not an admin
+  // (and the redirect is in progress), show a loading skeleton.
+  if (isRoleLoading || !isAdmin) {
     return (
       <div className="space-y-8">
         <div className="flex justify-between items-center">
@@ -53,7 +38,9 @@ export default function AdminLayout({
       </div>
     );
   }
-  
-  // If loading is complete and the user is confirmed to be an admin, render the children.
+
+  // If loading is complete and the user is an admin, render the children.
   return <>{children}</>;
 }
+
+    

@@ -20,21 +20,13 @@ import { useAuth, useUser } from "@/firebase"
 import { MessageSquare, Settings, LogOut } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "firebase/auth"
-import { useDoc, useFirebase, useMemoFirebase } from "@/firebase"
-import { doc } from "firebase/firestore"
+import { useData } from "./providers/data-provider"
 
 
 export function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  const { firestore } = useFirebase();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user?.uid]);
-
-  const { data: userData } = useDoc<{ role: string }>(userDocRef);
+  const { isAdmin } = useData();
 
   const handleLogout = () => {
     signOut(auth);
@@ -58,8 +50,6 @@ export function UserNav() {
       </Button>
     )
   }
-
-  const isAdmin = userData?.role === 'admin';
 
   return (
     <DropdownMenu>
@@ -109,3 +99,5 @@ export function UserNav() {
     </DropdownMenu>
   )
 }
+
+    
