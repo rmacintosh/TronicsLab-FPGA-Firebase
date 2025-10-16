@@ -16,8 +16,9 @@ import { CodeBlock } from "@/components/code-block";
 import { useData } from "@/components/providers/data-provider";
 
 export default function ArticlePage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
   const { articles, comments } = useData();
-  const article = articles.find((a) => a.slug === params.slug);
+  const article = articles.find((a) => a.slug === slug);
 
   if (!article) {
     notFound();
