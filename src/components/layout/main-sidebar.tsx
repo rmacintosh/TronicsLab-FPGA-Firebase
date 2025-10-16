@@ -61,7 +61,7 @@ export default function MainSidebar() {
                             <AccordionContent>
                                 <SidebarMenuSub>
                                     {value.subCategories.map(sub => (
-                                        <SidebarMenuSubItem key={sub.slug}>
+                                        <SidebarMenuSubItem key={`${key}-${sub.slug}`}>
                                              <SidebarMenuSubButton asChild isActive={pathname.endsWith(sub.slug)}>
                                                 <Link href={`/articles/${sub.slug}`}>
                                                     {sub.name}
