@@ -1,3 +1,6 @@
+"use client"
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { categories } from "@/lib/data";
 
+type CategoryKey = keyof typeof categories;
+
 export default function CreateArticlePage() {
+    const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null);
+    const [selectedSubCategory, setSelectedSubCategory] = useState<string>("");
+
+    const handleCategoryChange = (value: string) => {
+        const categoryKey = value as CategoryKey;
+        setSelectedCategory(categoryKey);
+        setSelectedSubCategory(""); // Reset subcategory when category changes
+    };
+
     return (
         <div className="space-y-8">
             <h1 className="font-headline text-4xl font-bold tracking-tight">Create New Article</h1>
@@ -25,7 +39,7 @@ export default function CreateArticlePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label htmlFor="category">Category</Label>
-                            <Select>
+                            <Select onValueChange={handleCategoryChange}>
                                 <SelectTrigger id="category">
                                     <SelectValue placeholder="Select a category" />
                                 </SelectTrigger>
@@ -38,15 +52,16 @@ export default function CreateArticlePage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="subcategory">Sub-category</Label>
-                            <Select>
+                            <Select 
+                                value={selectedSubCategory} 
+                                onValueChange={setSelectedSubCategory}
+                                disabled={!selectedCategory}
+                            >
                                 <SelectTrigger id="subcategory">
                                     <SelectValue placeholder="Select a sub-category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {categories.tutorials.subCategories.map(sub => (
-                                        <SelectItem key={sub.slug} value={sub.slug}>{sub.name}</SelectItem>
-                                    ))}
-                                     {categories.blog.subCategories.map(sub => (
+                                    {selectedCategory && categories[selectedCategory].subCategories.map(sub => (
                                         <SelectItem key={sub.slug} value={sub.slug}>{sub.name}</SelectItem>
                                     ))}
                                 </SelectContent>
