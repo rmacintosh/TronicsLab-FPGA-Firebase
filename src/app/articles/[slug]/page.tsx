@@ -1,7 +1,7 @@
 "use client"
 
 import { user } from "@/lib/data";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { CodeBlock } from "@/components/code-block";
 import { useData } from "@/components/providers/data-provider";
 
-export default function ArticlePage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default function ArticlePage() {
+  const params = useParams();
+  const slug = params.slug as string;
   const { articles, comments } = useData();
   const article = articles.find((a) => a.slug === slug);
 
