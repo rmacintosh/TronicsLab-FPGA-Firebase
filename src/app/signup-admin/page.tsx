@@ -1,139 +1,215 @@
-
 "use client";
 
-import Link from "next/link"
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Cpu } from "lucide-react"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirebase, useUser } from "@/firebase";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { setDoc, doc } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useCollection, useFirebase, addDocumentNonBlocking, WithId, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, doc, setDoc, writeBatch, getDocs, query, limit } from 'firebase/firestore';
+import type { Article, Category, SubCategory, Comment } from '@/lib/types';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
-const signupSchema = z.object({
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-});
+interface DataContextProps {
+  articles: WithId<Article>[];
+  categories: WithId<Category>[];
+  subCategories: WithId<SubCategory>[];
+  comments: WithId<Comment>[];
+  addArticle: (article: Omit<Article, 'id'>) => Promise<any>;
+  addCategory: (category: Omit<Category, 'id'>) => Promise<any>;
+  addSubCategory: (subCategory: Omit<SubCategory, 'id'>) => Promise<any>;
+  seedDatabase: () => Promise<void>;
+  isLoading: boolean;
+  isAdmin: boolean;
+  isRoleLoading: boolean;
+}
 
-export default function AdminSignupPage() {
-  const auth = useAuth();
-  const { toast } = useToast();
-  const router = useRouter();
-  const { user } = useUser();
+const DataContext = createContext<DataContextProps | undefined>(undefined);
+
+const initialCategories: Omit<Category, 'id'>[] = [
+    { name: 'Tutorials', slug: 'tutorials' },
+    { name: 'Blog', slug: 'blog' },
+];
+
+const initialSubCategories: Omit<SubCategory, 'id'>[] = [
+    { name: 'Getting Started', slug: 'getting-started', parentCategory: 'tutorials' },
+    { name: 'Advanced', slug: 'advanced', parentCategory: 'tutorials' },
+    { name: 'News', slug: 'news', parentCategory: 'blog' },
+    { name: 'Project Spotlights', slug: 'project-spotlights', parentCategory: 'blog' },
+];
+
+const initialArticles: Omit<Article, 'id'>[] = [
+  {
+    slug: 'fpga-basics-a-beginners-guide',
+    title: "FPGA Basics: A Beginner's Guide",
+    description: "Learn the fundamentals of FPGAs, from what they are to how they work. This guide covers the essential concepts to get you started on your first project.",
+    category: 'tutorials',
+    subCategory: 'Getting Started',
+    author: 'Admin',
+    date: '2024-01-15T10:00:00.000Z',
+    views: 1250,
+    image: PlaceHolderImages.find(img => img.id === 'fpga-basics')!,
+    content: `<p>This is a detailed article about the basics of FPGAs...</p>`,
+  },
+  {
+    slug: 'your-first-verilog-project-hello-world',
+    title: "Your First Verilog Project: Hello, World!",
+    description: "A step-by-step tutorial on creating a simple 'Hello, World!' project in Verilog. Perfect for those new to hardware description languages.",
+    category: 'tutorials',
+    subCategory: 'Getting Started',
+    author: 'Admin',
+    date: '2024-02-02T14:30:00.000Z',
+    views: 980,
+    image: PlaceHolderImages.find(img => img.id === 'verilog-hello-world')!,
+    content: `<p>This is a detailed article about creating a 'Hello, World!' project in Verilog...</p>`,
+  },
+  {
+    slug: 'building-an-led-blinker-with-an-fpga',
+    title: "Building an LED Blinker with an FPGA",
+    description: "Follow along as we create a classic LED blinker project. This hands-on tutorial will solidify your understanding of basic FPGA development.",
+    category: 'tutorials',
+    subCategory: 'Getting Started',
+    author: 'Admin',
+    date: '2024-02-20T11:00:00.000Z',
+    views: 1800,
+    image: PlaceHolderImages.find(img => img.id === 'led-blinker-project')!,
+    content: `<p>This is a detailed article about building an LED blinker...</p>`,
+  },
+  {
+    slug: 'advanced-fsm-design-for-complex-protocols',
+    title: "Advanced FSM Design for Complex Protocols",
+    description: "Dive deep into finite state machine design. This article explores techniques for handling complex communication protocols and improving FSM robustness.",
+    category: 'tutorials',
+    subCategory: 'Advanced',
+    author: 'Admin',
+    date: '2024-03-10T09:00:00.000Z',
+    views: 2100,
+    image: PlaceHolderImages.find(img => img.id === 'advanced-fsm')!,
+    content: `<p>This is a detailed article about advanced FSM design...</p>`,
+  },
+  {
+    slug: 'optimizing-your-verilog-for-better-performance',
+    title: "Optimizing Your Verilog for Better Performance",
+    description: "Learn tips and tricks for writing more efficient Verilog code. This article covers synthesis-friendly coding styles and performance optimization strategies.",
+    category: 'blog',
+    subCategory: 'News',
+    author: 'Admin',
+    date: '2024-04-05T16:00:00.000Z',
+    views: 3200,
+    image: PlaceHolderImages.find(img => img.id === 'optimizing-verilog')!,
+    content: `<p>This is a detailed article about optimizing Verilog...</p>`,
+  },
+  {
+    slug: 'the-rise-of-soc-fpgas-a-new-era-of-computing',
+    title: "The Rise of SoC FPGAs: A New Era of Computing",
+    description: "System-on-Chip (SoC) FPGAs are changing the game. Discover what they are, their advantages, and how they are powering the next generation of embedded systems.",
+    category: 'blog',
+    subCategory: 'Project Spotlights',
+    author: 'Admin',
+    date: '2024-05-01T18:00:00.000Z',
+    views: 4500,
+    image: PlaceHolderImages.find(img => img.id === 'soc-design')!,
+    content: `<p>This is a detailed article about SoC FPGAs...</p>`,
+  },
+];
+
+
+export const DataProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
+  const { user, claims, isUserLoading } = useUser();
 
-  const form = useForm<z.infer<typeof signupSchema>>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
+  const isAdmin = claims?.claims.admin === true;
+  const isRoleLoading = isUserLoading;
 
-  useEffect(() => {
-    if (user) {
-      router.push('/');
+  const articlesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'articles') : null), [firestore]);
+  const { data: articles, isLoading: articlesLoading } = useCollection<Article>(articlesCollection);
+
+  const categoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'categories') : null), [firestore]);
+  const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesCollection);
+
+  const subCategoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'subCategories') : null), [firestore]);
+  const { data: subCategories, isLoading: subCategoriesLoading } = useCollection<SubCategory>(subCategoriesCollection);
+
+  const commentsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'comments') : null), [firestore]);
+  const { data: comments, isLoading: commentsLoading } = useCollection<Comment>(commentsCollection);
+  
+  const addArticle = (article: Omit<Article, 'id'>) => {
+    if (!articlesCollection) {
+        return Promise.reject("Firestore not initialized");
     }
-  }, [user, router]);
+    return addDocumentNonBlocking(articlesCollection, article);
+  };
 
-  const onSubmit = async (values: z.infer<typeof signupSchema>) => {
-    try {
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const newUser = userCredential.user;
-
-        // Create a user profile document in Firestore with the admin role.
-        if (newUser && firestore) {
-            const userRef = doc(firestore, "users", newUser.uid);
-            await setDoc(userRef, {
-                uid: newUser.uid,
-                email: values.email,
-                createdAt: new Date().toISOString(),
-                role: 'admin', // Assign the admin role
-            });
-        }
-      
-        toast({
-            title: "Admin Account Created",
-            description: "You have successfully signed up as an administrator!",
-        });
-        router.push('/');
-    } catch (error: any) {
-      let description = "An unexpected error occurred.";
-      if (error.code === 'auth/email-already-in-use') {
-        description = "This email address is already in use.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Sign-up Failed",
-        description: description,
-      });
+  const addCategory = (category: Omit<Category, 'id'>) => {
+    if (!firestore) {
+        return Promise.reject("Firestore not initialized");
     }
+    const categoryRef = doc(firestore, 'categories', category.slug);
+    return setDoc(categoryRef, category);
+  };
+
+  const addSubCategory = (subCategory: Omit<SubCategory, 'id'>) => {
+    if (!firestore) {
+        return Promise.reject("Firestore not initialized");
+    }
+    const subCategoryRef = doc(firestore, 'subCategories', `${subCategory.parentCategory}-${subCategory.slug}`);
+    return setDoc(subCategoryRef, subCategory);
+  };
+
+  const seedDatabase = async () => {
+    if (!firestore) {
+      throw new Error("Firestore not initialized");
+    }
+    const articlesQuery = query(collection(firestore, 'articles'), limit(1));
+    const articlesSnapshot = await getDocs(articlesQuery);
+
+    if (!articlesSnapshot.empty) {
+        throw new Error("Database has already been seeded.");
+    }
+    
+    const batch = writeBatch(firestore);
+
+    initialCategories.forEach(category => {
+        const categoryRef = doc(firestore, 'categories', category.slug);
+        batch.set(categoryRef, category);
+    });
+
+    initialSubCategories.forEach(subCategory => {
+        const subCategoryRef = doc(firestore, 'subCategories', `${subCategory.parentCategory}-${subCategory.slug}`);
+        batch.set(subCategoryRef, subCategory);
+    });
+
+    initialArticles.forEach(article => {
+        const articleRef = doc(firestore, 'articles', article.slug);
+        batch.set(articleRef, article);
+    });
+
+    await batch.commit();
+  };
+  
+  const isLoading = articlesLoading || categoriesLoading || subCategoriesLoading || commentsLoading || isRoleLoading;
+
+  const value = {
+    articles: articles || [],
+    categories: categories || [],
+    subCategories: subCategories || [],
+    comments: comments || [],
+    addArticle,
+    addCategory,
+    addSubCategory,
+    seedDatabase,
+    isLoading,
+    isAdmin,
+    isRoleLoading
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="mx-auto max-w-sm w-full">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
-              <Link href="/" className="flex items-center gap-2 text-foreground">
-                  <Cpu className="h-8 w-8 text-primary" />
-                  <span className="font-headline text-2xl font-semibold">TronicsLab</span>
-              </Link>
-          </div>
-          <CardTitle className="text-2xl font-headline">Admin Sign Up</CardTitle>
-          <CardDescription>
-            Create the primary administrator account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="admin@example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Password</FormLabel>
-                                <FormControl>
-                                    <Input type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <Button type="submit" className="w-full">
-                      Create Admin Account
-                    </Button>
-                </form>
-            </Form>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+    <DataContext.Provider value={value}>
+      {children}
+    </DataContext.Provider>
+  );
+};
+
+export const useData = () => {
+  const context = useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useData must be used within a DataProvider');
+  }
+  return context;
+};

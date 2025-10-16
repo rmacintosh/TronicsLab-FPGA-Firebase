@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useCollection, useFirebase, addDocumentNonBlocking, WithId, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useFirebase, addDocumentNonBlocking, WithId, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, doc, setDoc, writeBatch, getDocs, query, limit } from 'firebase/firestore';
 import type { Article, Category, SubCategory, Comment } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -115,7 +115,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
   const { user, claims, isUserLoading } = useUser();
 
-  const isAdmin = !!claims?.claims.admin;
+  const isAdmin = claims?.claims.admin === true;
+  const isRoleLoading = isUserLoading;
 
   const articlesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'articles') : null), [firestore]);
   const { data: articles, isLoading: articlesLoading } = useCollection<Article>(articlesCollection);
@@ -182,8 +183,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     await batch.commit();
   };
-
-  const isRoleLoading = isUserLoading;
+  
   const isLoading = articlesLoading || categoriesLoading || subCategoriesLoading || commentsLoading || isRoleLoading;
 
   const value = {
