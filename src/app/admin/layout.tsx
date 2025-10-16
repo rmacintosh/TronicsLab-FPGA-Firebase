@@ -23,16 +23,17 @@ export default function AdminLayout({
 
   const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
 
-  const isLoading = isUserLoading || (user && isRoleLoading);
+  const isLoading = isUserLoading || isRoleLoading;
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user || userData?.role !== 'admin') {
-        router.replace('/');
-      }
+    // If not loading and not an admin, redirect.
+    if (!isLoading && (!user || userData?.role !== 'admin')) {
+      router.replace('/');
     }
   }, [user, userData, isLoading, router]);
 
+  // While loading, or if the user is not yet confirmed as an admin, show a loading state.
+  // This prevents the flicker and premature redirect.
   if (isLoading || !user || userData?.role !== 'admin') {
     return (
       <div className="space-y-8">
@@ -47,5 +48,6 @@ export default function AdminLayout({
     );
   }
 
+  // Only if all checks pass, render the actual admin content.
   return <>{children}</>;
 }
