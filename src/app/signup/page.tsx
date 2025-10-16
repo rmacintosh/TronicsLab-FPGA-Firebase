@@ -52,14 +52,16 @@ export default function SignupPage() {
   const onSubmit = async (values: z.infer<typeof signupSchema>) => {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const newUser = userCredential.user;
 
-        if (userCredential.user && firestore) {
-            const userRef = doc(firestore, "users", userCredential.user.uid);
+        if (newUser && firestore) {
+            const userRef = doc(firestore, "users", newUser.uid);
             const isAdmin = values.email === 'rmacintosh@gmail.com';
 
-            // Use a standard, awaited setDoc to guarantee the write operation completes.
+            // Use an awaited setDoc to ensure this critical write completes.
+            // This guarantees the role is set before the user might navigate to the admin panel.
             await setDoc(userRef, {
-                uid: userCredential.user.uid,
+                uid: newUser.uid,
                 email: values.email,
                 role: isAdmin ? 'admin' : 'user',
                 createdAt: new Date().toISOString(),

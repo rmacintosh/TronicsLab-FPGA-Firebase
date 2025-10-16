@@ -23,21 +23,27 @@ export default function AdminLayout({
 
   const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
 
-  const isLoading = isUserLoading || (user && isRoleLoading);
+  const isCheckingAuth = isUserLoading || isRoleLoading;
   const isAdmin = userData?.role === 'admin';
 
   useEffect(() => {
-    // If loading is finished and the user is not an admin, redirect.
-    if (!isLoading && !isAdmin) {
-      router.replace('/');
+    // Only perform actions *after* all loading is complete.
+    if (!isCheckingAuth) {
+      // If loading is done and the user is not an admin, redirect them.
+      if (!isAdmin) {
+        router.replace('/');
+      }
     }
-  }, [isLoading, isAdmin, router]);
+  }, [isCheckingAuth, isAdmin, router]);
 
-  // While loading, or if the user is not an admin (and redirect is in progress), show a skeleton loader.
-  if (isLoading || !isAdmin) {
+  // While checking authentication or if the user is not an admin (and the redirect is in progress),
+  // show a skeleton loader. This prevents rendering the children for non-admins.
+  if (isCheckingAuth || !isAdmin) {
     return (
       <div className="space-y-8">
-        <h1 className="font-headline text-4xl font-bold tracking-tight">Admin Panel</h1>
+        <div className="flex justify-between items-center">
+            <h1 className="font-headline text-4xl font-bold tracking-tight">Admin Panel</h1>
+        </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-28 w-full" />
@@ -48,6 +54,6 @@ export default function AdminLayout({
     );
   }
   
-  // If loading is complete and the user is an admin, render the children.
+  // If loading is complete and the user is confirmed to be an admin, render the children.
   return <>{children}</>;
 }
