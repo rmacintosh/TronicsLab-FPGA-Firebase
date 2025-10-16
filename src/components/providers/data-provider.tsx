@@ -21,16 +21,16 @@ const DataContext = createContext<DataContextProps | undefined>(undefined);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
 
-  const articlesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'articles') : null, [firestore]);
+  const articlesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'articles') : null), [firestore]);
   const { data: articles, isLoading: articlesLoading } = useCollection<Article>(articlesCollection);
 
-  const categoriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'categories') : null, [firestore]);
+  const categoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'categories') : null), [firestore]);
   const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesCollection);
 
-  const subCategoriesCollection = useMemoFirebase(() => firestore ? collection(firestore, 'subCategories') : null, [firestore]);
+  const subCategoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'subCategories') : null), [firestore]);
   const { data: subCategories, isLoading: subCategoriesLoading } = useCollection<SubCategory>(subCategoriesCollection);
 
-  const commentsCollection = useMemoFirebase(() => firestore ? collection(firestore, 'comments') : null, [firestore]);
+  const commentsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'comments') : null), [firestore]);
   const { data: comments, isLoading: commentsLoading } = useCollection<Comment>(commentsCollection);
   
   const addArticle = (article: Omit<Article, 'id'>) => {
@@ -65,7 +65,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     comments: comments || [],
     addArticle,
     addCategory,
-addSubCategory,
+    addSubCategory,
     isLoading,
   };
 
