@@ -12,7 +12,7 @@ const getImage = (id: string) => {
   return image;
 };
 
-export const categories = {
+export const initialCategories = {
   tutorials: {
     name: 'Tutorials',
     subCategories: [
@@ -31,7 +31,7 @@ export const categories = {
   },
 };
 
-export const articles = [
+export const initialArticles = [
   {
     slug: 'getting-started-with-fpgas',
     title: 'Getting Started with FPGAs',
@@ -110,9 +110,7 @@ export const articles = [
   },
 ];
 
-export const featuredArticles = articles.slice(0, 3);
-
-export const comments = [
+export const initialComments = [
     { articleSlug: 'getting-started-with-fpgas', userEmail: 'student@example.com', comment: 'This was super helpful, thanks!', date: '2024-05-21' },
     { articleSlug: 'getting-started-with-fpgas', userEmail: 'pro@example.com', comment: 'A good overview. I would add a section on timing constraints.', date: '2024-05-22' },
     { articleSlug: 'hello-world-in-verilog', userEmail: 'newbie@example.com', comment: 'I got my LED blinking! So satisfying.', date: '2024-05-23' },
@@ -124,3 +122,8 @@ export const user = {
     avatar: 'https://picsum.photos/seed/user/100/100',
     isAdmin: true,
 };
+
+// Types
+export type Article = typeof initialArticles[0];
+export type Category = typeof initialCategories;
+export type Comment = typeof initialComments[0];

@@ -3,17 +3,17 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInput, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from "@/components/ui/sidebar"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { categories, user } from "@/lib/data"
-import { cn } from "@/lib/utils"
+import { user } from "@/lib/data"
 import { BookOpen, Cpu, Home, Newspaper, Search, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserNav } from "../user-nav"
 import { ThemeToggle } from "../theme-toggle"
+import { useData } from "../providers/data-provider"
 
 export default function MainSidebar() {
     const pathname = usePathname();
+    const { categories } = useData();
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
@@ -62,8 +62,8 @@ export default function MainSidebar() {
                                 <SidebarMenuSub>
                                     {value.subCategories.map(sub => (
                                         <SidebarMenuSubItem key={sub.slug}>
-                                            <SidebarMenuSubButton asChild isActive={pathname.endsWith(sub.slug)}>
-                                                <Link href={`/${key}/${sub.slug}`}>
+                                             <SidebarMenuSubButton asChild isActive={pathname.endsWith(sub.slug)}>
+                                                <Link href={`/articles/${sub.slug}`}>
                                                     {sub.name}
                                                 </Link>
                                             </SidebarMenuSubButton>

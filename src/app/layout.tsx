@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import MainSidebar from "@/components/layout/main-sidebar";
 import { MainContent } from "@/components/layout/main-content";
+import { DataProvider } from "@/components/providers/data-provider";
 
 export const metadata: Metadata = {
   title: "TronicsLab: FPGA",
@@ -26,13 +27,15 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background")}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <SidebarProvider>
-              <MainSidebar />
-              <MainContent>
-                {children}
-              </MainContent>
-            <Toaster />
-          </SidebarProvider>
+          <DataProvider>
+            <SidebarProvider>
+                <MainSidebar />
+                <MainContent>
+                  {children}
+                </MainContent>
+              <Toaster />
+            </SidebarProvider>
+          </DataProvider>
         </ThemeProvider>
       </body>
     </html>

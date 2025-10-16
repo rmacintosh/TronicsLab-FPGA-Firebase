@@ -1,11 +1,16 @@
+"use client"
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { featuredArticles } from "@/lib/data";
 import { ArrowRight, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useData } from "@/components/providers/data-provider";
 
 export default function Home() {
+  const { articles } = useData();
+  const featuredArticles = articles.slice(0, 3);
+
   return (
     <div className="space-y-8">
       <header className="space-y-4">

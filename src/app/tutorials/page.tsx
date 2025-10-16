@@ -1,11 +1,14 @@
+"use client"
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { articles } from "@/lib/data";
 import { ArrowRight, Eye } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useData } from "@/components/providers/data-provider";
 
 export default function TutorialsPage() {
+  const { articles } = useData();
   const tutorialArticles = articles.filter(a => a.category === 'tutorials');
 
   return (

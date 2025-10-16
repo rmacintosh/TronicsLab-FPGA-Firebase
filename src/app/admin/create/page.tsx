@@ -1,20 +1,16 @@
 "use client"
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { categories } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
-
-type CategoryKey = keyof typeof categories;
+import { useData } from "@/components/providers/data-provider";
 
 const articleSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -28,9 +24,9 @@ const articleSchema = z.object({
     message: "New category name cannot be empty.",
     path: ["newCategory"],
 }).refine(data => {
-    if (data.category === 'new') return true; // if category is new, subcategory logic is different
-    const selectedCategory = categories[data.category as CategoryKey];
-    if (!selectedCategory) return true; // no validation if category doesn't exist
+    if (data.category === 'new') return true; 
+    const selectedCategoryData = useData.getState().categories[data.category as keyof ReturnType<typeof useData>['categories']];
+    if (!selectedCategoryData) return true;
     return data.subCategory !== 'new' || (data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0);
 }, {
     message: "New sub-category name cannot be empty.",
@@ -40,6 +36,8 @@ const articleSchema = z.object({
 
 export default function CreateArticlePage() {
     const { toast } = useToast();
+    const { categories, addArticle, addCategory, addSubCategory } = useData();
+
     const form = useForm<z.infer<typeof articleSchema>>({
         resolver: zodResolver(articleSchema),
         defaultValues: {
@@ -56,7 +54,8 @@ export default function CreateArticlePage() {
     const selectedSubCategory = form.watch("subCategory");
     
     const isNewCategory = selectedCategory === 'new';
-    const currentCategoryKey = selectedCategory as CategoryKey;
+    const currentCategoryKey = selectedCategory as keyof typeof categories;
+    const subcategories = categories[currentCategoryKey]?.subCategories || [];
 
     const handleCategoryChange = (value: string) => {
         form.setValue("category", value);
@@ -70,9 +69,55 @@ export default function CreateArticlePage() {
         form.setValue("newSubCategory", "");
     }
 
+    function slugify(text: string) {
+        return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+    }
+
     function onSubmit(values: z.infer<typeof articleSchema>) {
-        // Here you would typically send the data to your backend
-        console.log(values);
+        let finalCategory = values.category;
+        let finalSubCategory = values.subCategory;
+        let finalSubCategoryName = "";
+
+        if (values.category === 'new' && values.newCategory) {
+            const newCategorySlug = slugify(values.newCategory);
+            addCategory(newCategorySlug, values.newCategory);
+            finalCategory = newCategorySlug;
+            
+            if (values.newSubCategory) {
+                const newSubCategorySlug = slugify(values.newSubCategory);
+                addSubCategory(newCategorySlug, { name: values.newSubCategory, slug: newSubCategorySlug });
+                finalSubCategory = newSubCategorySlug;
+                finalSubCategoryName = values.newSubCategory;
+            }
+        } else if (values.subCategory === 'new' && values.newSubCategory) {
+            const newSubCategorySlug = slugify(values.newSubCategory);
+            addSubCategory(finalCategory, { name: values.newSubCategory, slug: newSubCategorySlug });
+            finalSubCategory = newSubCategorySlug;
+            finalSubCategoryName = values.newSubCategory;
+        } else {
+             const subCat = categories[finalCategory as keyof typeof categories]?.subCategories.find(sc => sc.slug === finalSubCategory);
+             finalSubCategoryName = subCat?.name || "";
+        }
+
+        const newArticle = {
+            slug: slugify(values.title),
+            title: values.title,
+            description: values.content.substring(0, 100) + '...',
+            category: finalCategory,
+            subCategory: finalSubCategoryName,
+            author: 'Admin',
+            date: new Date().toISOString().split('T')[0],
+            views: 0,
+            image: {
+                id: 'new-article',
+                imageUrl: 'https://picsum.photos/seed/new-article/600/400',
+                imageHint: 'abstract tech',
+            },
+            content: `<p>${values.content}</p>`,
+        };
+
+        addArticle(newArticle);
+
         toast({
             title: "Article Published!",
             description: `The article "${values.title}" has been successfully published.`,
@@ -154,15 +199,15 @@ export default function CreateArticlePage() {
                                       <Select 
                                         onValueChange={handleSubCategoryChange} 
                                         value={field.value}
-                                        disabled={!selectedCategory || isNewCategory}
+                                        disabled={!selectedCategory}
                                       >
                                         <FormControl>
                                           <SelectTrigger>
-                                            <SelectValue placeholder="Select a sub-category" />
+                                            <SelectValue placeholder={isNewCategory ? "Define a new sub-category below" : "Select a sub-category"} />
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {selectedCategory && categories[currentCategoryKey] && categories[currentCategoryKey].subCategories.map(sub => (
+                                            {!isNewCategory && subcategories.map(sub => (
                                                 <SelectItem key={sub.slug} value={sub.slug}>{sub.name}</SelectItem>
                                             ))}
                                             <SelectItem value="new">Create new sub-category...</SelectItem>
@@ -209,7 +254,7 @@ export default function CreateArticlePage() {
                                     <FormItem>
                                         <FormLabel>Featured Image</FormLabel>
                                         <FormControl>
-                                            <Input type="file" {...field} />
+                                            <Input type="file" onChange={(e) => field.onChange(e.target.files)} />
                                         </FormControl>
                                         <FormDescription>Upload a cover image for the article.</FormDescription>
                                         <FormMessage />

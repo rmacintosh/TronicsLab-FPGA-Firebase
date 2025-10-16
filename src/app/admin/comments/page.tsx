@@ -1,12 +1,16 @@
+"use client"
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { articles, comments } from "@/lib/data";
 import { Check, Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { useData } from "@/components/providers/data-provider";
 
 export default function ManageCommentsPage() {
+    const { articles, comments } = useData();
+
     const getArticleTitle = (slug: string) => {
         return articles.find(a => a.slug === slug)?.title || 'Unknown Article';
     }

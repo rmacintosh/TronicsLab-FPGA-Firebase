@@ -1,10 +1,14 @@
+"use client"
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { articles, comments } from "@/lib/data";
 import { FilePlus, MessageSquare, Users } from "lucide-react";
 import Link from "next/link";
+import { useData } from "@/components/providers/data-provider";
 
 export default function AdminDashboard() {
+  const { articles, comments } = useData();
+  
   return (
     <div className="space-y-8">
       <h1 className="font-headline text-4xl font-bold tracking-tight">Admin Dashboard</h1>

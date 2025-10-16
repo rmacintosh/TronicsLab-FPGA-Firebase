@@ -1,4 +1,6 @@
-import { articles, comments, user as author } from "@/lib/data";
+"use client"
+
+import { user } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,8 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { CodeBlock } from "@/components/code-block";
+import { useData } from "@/components/providers/data-provider";
 
 export default function ArticlePage({ params }: { params: { slug: string } }) {
+  const { articles, comments } = useData();
   const article = articles.find((a) => a.slug === params.slug);
 
   if (!article) {
@@ -20,6 +24,7 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
   }
   
   const articleComments = comments.filter(c => c.articleSlug === article.slug);
+  const author = user;
 
   return (
     <div className="max-w-4xl mx-auto">
