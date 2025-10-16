@@ -12,14 +12,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useData } from "@/components/providers/data-provider";
-import { use } from "react";
-import { useUser } from "@/firebase";
+import { use, useState } from "react";
+import { useUser, addDocumentNonBlocking, useFirebase } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const { articles, comments } = useData();
   const article = articles.find((a) => a.slug === slug);
   const { user } = useUser();
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [commentText, setCommentText] = useState("");
 
   if (!article) {
     notFound();
@@ -30,6 +35,40 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
       name: article.author,
       avatar: `https://picsum.photos/seed/${article.author}/100/100`
   }
+
+  const handlePostComment = () => {
+    if (!user || !firestore) {
+        toast({
+            variant: "destructive",
+            title: "Not Logged In",
+            description: "You must be logged in to post a comment.",
+        });
+        return;
+    }
+
+    if (!commentText.trim()) {
+        toast({
+            variant: "destructive",
+            title: "Empty Comment",
+            description: "You cannot post an empty comment.",
+        });
+        return;
+    }
+    
+    const commentsCollection = collection(firestore, 'comments');
+    addDocumentNonBlocking(commentsCollection, {
+        articleSlug: article.slug,
+        userEmail: user.email,
+        comment: commentText,
+        date: new Date().toISOString(),
+    });
+
+    setCommentText("");
+    toast({
+        title: "Comment Posted",
+        description: "Your comment has been successfully posted.",
+    });
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -111,24 +150,24 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
                 <CardTitle>Leave a Comment</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="comment-name">Name</Label>
-                        <Input id="comment-name" placeholder="Your Name" />
+                {!user ? (
+                     <div className="text-center text-muted-foreground">
+                        <Link href="/login" className="underline text-primary">Login</Link> or <Link href="/signup" className="underline text-primary">Sign up</Link> to leave a comment.
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="comment-email">Email</Label>
-                        <Input id="comment-email" type="email" placeholder="you@example.com" />
+                ) : (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="comment-text">Your Comment</Label>
+                        <Textarea id="comment-text" placeholder="Write your comment here..." rows={4} value={commentText} onChange={(e) => setCommentText(e.target.value)} />
                     </div>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="comment-text">Comment</Label>
-                    <Textarea id="comment-text" placeholder="Write your comment here..." rows={4} />
-                </div>
+                </>
+                )}
             </CardContent>
-            <CardFooter>
-                <Button>Post Comment</Button>
-            </CardFooter>
+            {user && (
+                <CardFooter>
+                    <Button onClick={handlePostComment}>Post Comment</Button>
+                </CardFooter>
+            )}
         </Card>
       </section>
     </div>

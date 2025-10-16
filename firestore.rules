@@ -1,116 +1,144 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a combination of public read access for some collections and owner-based access control for write operations and user-specific data.
- *
- * Data Structure:
- * - /articles/{articleId}: Publicly readable articles with owner-restricted writes (ownerId is denormalized on the document).
- * - /users/{userId}/articles/{articleId}: User-owned articles, strictly controlled by the user's ID.
- * - /authors/{authorId}: Publicly readable author profiles.
- * - /categories/{categoryId}: Publicly readable category data.
- * - /comments/{commentId}: Publicly readable comments.
- *
- * Key Security Decisions:
- * - Public Read Access: The /articles, /authors, /categories, and /comments collections are publicly readable to allow for easy data access.
- * - Owner-Only Writes: Write access to /articles is restricted to the owner (author) of the article.  The `authorId` field within the article document is used to enforce this.
- * - User-Scoped Data: Data under /users/{userId} is strictly limited to the authenticated user matching the userId. This pattern ensures that users can only access their own data.
- * - Denormalization for Authorization: The `authorId` field is present on the `Article` entity to allow easy validation of ownership in the rules, avoiding costly `get()` operations.
- * - No User Listing: Listing all users is disallowed.
+ * @description This ruleset enforces a strict user-ownership model for user-created articles,
+ *              while allowing public read access to all articles in the `/articles` collection.
+ *              Administrative privileges are granted to a specific email address for managing articles and comments.
+ * @dataStructure
+ *              - Articles are stored in the `/articles` collection and user-specific `/users/{userId}/articles` subcollections.
+ *              - Author information is stored in the `/authors` collection.
+ *              - Categories are stored in the `/categories` collection.
+ *              - Comments are stored in the `/comments` collection.
+ * @keySecurityDecisions
+ *              - Public read access to `/articles` collection.
+ *              - Strict ownership enforced for write operations to `/articles` and `/users/{userId}/articles`.
+ *              - Administrative role for rmacintosh@gmail.com to manage content.
+ *              - Denormalization of authorization data (`authorId`) into article documents to avoid `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read articles, but only the author can create, update, or delete them.
+     * @description Checks if the request is authenticated.
+     * @return True if the user is signed in, false otherwise.
+     * @example isSignedIn() == true
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of the resource.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @return True if the user is the owner, false otherwise.
+     * @example isOwner('user123') == true
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of the existing resource.
+     *              This function combines the ownership check with an existence check, ensuring
+     *              that the resource exists before proceeding with an update or delete operation.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @return True if the user is the owner and the resource exists, false otherwise.
+     * @example isExistingOwner('user123') == true
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user is an admin.
+     * @return True if the user is an admin, false otherwise.
+     * @example isAdmin() == true
+     */
+    function isAdmin() {
+        return isSignedIn() && request.auth.token.email == 'rmacintosh@gmail.com';
+    }
+
+    /**
+     * @description Rules for the /articles collection. Allows public read access, but restricts write access to admins or owners.
      * @path /articles/{articleId}
-     * @allow (get, list): Any user can read the article.
-     * @allow (create): Only the user with the matching `authorId` can create an article.
-     * @allow (update, delete): Only the user who is the author (`authorId`) of the existing article can update or delete it.
-     * @deny create: if the `authorId` in the request does not match the authenticated user's ID.
-     * @deny update, delete: if the authenticated user is not the author of the article.
-     * @principle Public read, owner-only writes with authorId validation.
+     * @allow (get, list) - Any user can read articles.
+     * @allow (create, update, delete) - Only admins or the article owner can modify articles.
+     * @deny (create, update, delete) - Non-admins and non-owners cannot modify articles.
+     * @principle Public read, owner-only writes with admin override.
      */
     match /articles/{articleId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
+
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update, delete: if isSignedIn() && isExistingOwner(resource.data.authorId);
+      allow update: if isSignedIn() && (isAdmin() || resource.data.authorId == request.auth.uid) && resource != null;
+      allow delete: if isSignedIn() && (isAdmin() || resource.data.authorId == request.auth.uid) && resource != null;
     }
 
     /**
-     * @description Allows a user to manage their own articles in their private user space.
+     * @description Rules for the /users/{userId}/articles collection. Enforces strict user ownership.
      * @path /users/{userId}/articles/{articleId}
-     * @allow (get, list): Only the user with the matching `userId` can read the articles.
-     * @allow (create): Only the user with the matching `userId` can create an article. The `userId` in the path must match the `id` field in the data.
-     * @allow (update, delete): Only the user with the matching `userId` can update or delete their own articles.
-     * @deny create: if the `userId` in the path does not match the authenticated user's ID, or if the `id` field in the data does not match the `userId`.
-     * @deny update, delete: if the authenticated user is not the owner of the article, or if the document does not exist.
-     * @principle Enforces document ownership for all operations within the user's private data space.
+     * @allow (create) - A user can create an article under their own ID.
+     * @allow (get, list) - A user can read their own articles.
+     * @allow (update, delete) - A user can update or delete their own articles.
+     * @deny (create, update, delete) - A user cannot create, update, or delete articles under another user's ID.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/articles/{articleId} {
-      allow get, list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update, delete: if isSignedIn() && isExistingOwner(userId) && resource.data.id == userId;
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.authorId == userId;
+      allow update: if isExistingOwner(userId) && resource.data.authorId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows anyone to read author information.
+     * @description Rules for the /authors collection. Allows read access to all, but restricts write access.
      * @path /authors/{authorId}
-     * @allow (get, list): Any user can read author profiles.
-     * @deny create, update, delete: No one can create, update, or delete author profiles.
-     * @principle Public read, no write access.
+     * @allow (get, list) - Any user can read author profiles.
+     * @deny (create, update, delete) - No one can create, update, or delete author profiles (for now).
+     * @principle Public read, no writes allowed.
      */
     match /authors/{authorId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows anyone to read category information.
+     * @description Rules for the /categories collection. Allows read access to all, but restricts write access.
      * @path /categories/{categoryId}
-     * @allow (get, list): Any user can read category data.
-     * @deny create, update, delete: No one can create, update, or delete categories.
-     * @principle Public read, no write access.
+     * @allow (get, list) - Any user can read category information.
+     * @deny (create, update, delete) - No one can create, update, or delete categories (for now).
+     * @principle Public read, no writes allowed.
      */
     match /categories/{categoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows anyone to read comments.
+     * @description Rules for the /comments collection. Allows public read access, and restricts write access to admins.
      * @path /comments/{commentId}
-     * @allow (get, list): Any user can read comments.
-     * @deny create, update, delete: No one can create, update, or delete comments.
-     * @principle Public read, no write access.
+     * @allow (get, list) - Any user can read comments.
+     * @allow (delete) - Only admins can delete comments.
+     * @deny (create, update) - No one can create or update comments via direct document access (comments should be created via backend functions).
+     * @principle Public read, admin-only deletion.
      */
     match /comments/{commentId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin() && resource != null;
     }
-
-    /**
-     * @description Allows anyone to read subcategories.
-     * @path /subCategories/{subCategoryId}
-     * @allow (get, list): Any user can read subcategories.
-     * @deny create, update, delete: No one can create, update, or delete subcategories.
-     * @principle Public read, no write access.
-     */
-    match /subCategories/{subCategoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-  }
-
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isSignedIn() && isOwner(userId) && resource != null;
   }
 }

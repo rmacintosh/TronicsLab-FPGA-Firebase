@@ -13,30 +13,29 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Cpu } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
-import { useAuth } from "@/firebase";
+import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
+import { useAuth, useFirebase, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useUser } from "@/firebase/provider";
+import { setDoc, doc } from "firebase/firestore";
 
-
-const loginSchema = z.object({
+const signupSchema = z.object({
     email: z.string().email("Invalid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-export default function LoginPage() {
+export default function SignupPage() {
   const auth = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useUser();
+  const { firestore } = useFirebase();
 
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<z.infer<typeof signupSchema>>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
       password: "",
@@ -49,23 +48,36 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+  const onSubmit = async (values: z.infer<typeof signupSchema>) => {
     try {
-      initiateEmailSignIn(auth, values.email, values.password);
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-      });
-      router.push('/');
+        await initiateEmailSignUp(auth, values.email, values.password);
+
+        const userCredential = auth.currentUser;
+        if (userCredential && firestore) {
+            const userRef = doc(firestore, "users", userCredential.uid);
+            const isAdmin = values.email === 'rmacintosh@gmail.com';
+
+            await setDoc(userRef, {
+                uid: userCredential.uid,
+                email: values.email,
+                role: isAdmin ? 'admin' : 'user',
+                createdAt: new Date().toISOString(),
+            });
+        }
+      
+        toast({
+            title: "Account Created",
+            description: "You have successfully signed up!",
+        });
+        router.push('/');
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Login Failed",
+        title: "Sign-up Failed",
         description: error.message || "An unexpected error occurred.",
       });
     }
   };
-
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -77,9 +89,9 @@ export default function LoginPage() {
                   <span className="font-headline text-2xl font-semibold">TronicsLab</span>
               </Link>
           </div>
-          <CardTitle className="text-2xl font-headline">Login</CardTitle>
+          <CardTitle className="text-2xl font-headline">Sign Up</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Enter your information to create an account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,15 +115,7 @@ export default function LoginPage() {
                         name="password"
                         render={({ field }) => (
                             <FormItem>
-                                <div className="flex items-center">
-                                    <FormLabel>Password</FormLabel>
-                                    <Link
-                                      href="#"
-                                      className="ml-auto inline-block text-sm underline"
-                                    >
-                                      Forgot your password?
-                                    </Link>
-                                </div>
+                                <FormLabel>Password</FormLabel>
                                 <FormControl>
                                     <Input type="password" {...field} />
                                 </FormControl>
@@ -120,17 +124,14 @@ export default function LoginPage() {
                         )}
                     />
                     <Button type="submit" className="w-full">
-                      Login
-                    </Button>
-                    <Button variant="outline" className="w-full" disabled>
-                      Login with GitHub
+                      Create an account
                     </Button>
                 </form>
             </Form>
           <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="underline">
-              Sign up
+            Already have an account?{" "}
+            <Link href="/login" className="underline">
+              Login
             </Link>
           </div>
         </CardContent>

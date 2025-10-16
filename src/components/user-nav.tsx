@@ -15,13 +15,40 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useUser } from "@/firebase"
+import { useAuth, useDoc, useFirebase, useUser } from "@/firebase"
 import { CreditCard, LogOut, Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
+import { signOut } from "firebase/auth"
+import { doc } from "firebase/firestore"
+import { useMemo } from "react"
 
 
 export function UserNav() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const { firestore } = useFirebase();
+
+  const userDocRef = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData } = useDoc<{ role: string }>(userDocRef);
+
+  const handleLogout = () => {
+    signOut(auth);
+  };
+  
+  if (isUserLoading) {
+    return (
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full" disabled>
+            <Avatar className="h-9 w-9">
+                <AvatarFallback></AvatarFallback>
+            </Avatar>
+        </Button>
+    )
+  }
+
 
   if (!user) {
     return (
@@ -31,7 +58,7 @@ export function UserNav() {
     )
   }
 
-  const isAdmin = user.email === 'admin@troniclab.com';
+  const isAdmin = userData?.role === 'admin';
 
   return (
     <DropdownMenu>
@@ -79,12 +106,10 @@ export function UserNav() {
                 <DropdownMenuSeparator />
             </>
         )}
-        <Link href="/login">
-            <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-            </DropdownMenuItem>
-        </Link>
+        <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

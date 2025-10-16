@@ -9,12 +9,22 @@ import { usePathname } from "next/navigation"
 import { UserNav } from "../user-nav"
 import { ThemeToggle } from "../theme-toggle"
 import { useData } from "../providers/data-provider"
-import { useUser } from "@/firebase"
+import { useDoc, useFirebase, useUser } from "@/firebase"
+import { doc } from "firebase/firestore"
+import { useMemo } from "react"
 
 export default function MainSidebar() {
     const pathname = usePathname();
     const { categories, subCategories, articles } = useData();
     const { user } = useUser();
+    const { firestore } = useFirebase();
+
+    const userDocRef = useMemo(() => {
+        if (!firestore || !user) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
+
+    const { data: userData } = useDoc<{ role: string }>(userDocRef);
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
@@ -29,6 +39,8 @@ export default function MainSidebar() {
     const getSubcategoriesForCategory = (categorySlug: string) => {
         return subCategories.filter(sc => sc.parentCategory === categorySlug);
     }
+    
+    const isAdmin = userData?.role === 'admin';
 
     return (
         <Sidebar>
@@ -99,7 +111,7 @@ export default function MainSidebar() {
                     ))}
                 </Accordion>
 
-                {user?.email === 'admin@troniclab.com' && (
+                {isAdmin && (
                     <div className="mt-auto pt-4">
                         <h3 className="px-2 text-xs font-medium text-muted-foreground mb-2">Admin</h3>
                         <SidebarMenu>
