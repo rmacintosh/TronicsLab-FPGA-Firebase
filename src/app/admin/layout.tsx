@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useDoc, useFirebase, useUser, useMemoFirebase } from "@/firebase";
@@ -22,18 +23,15 @@ export default function AdminLayout({
 
   const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
 
-  useEffect(() => {
-    const isLoading = isUserLoading || (user && isRoleLoading);
-    if (isLoading) {
-      return; 
-    }
-
-    if (!user || userData?.role !== 'admin') {
-      router.replace('/');
-    }
-  }, [user, userData, isUserLoading, isRoleLoading, router]);
-
   const isLoading = isUserLoading || (user && isRoleLoading);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user || userData?.role !== 'admin') {
+        router.replace('/');
+      }
+    }
+  }, [user, userData, isLoading, router]);
 
   if (isLoading || !user || userData?.role !== 'admin') {
     return (
