@@ -28,12 +28,13 @@ const initialCategories: Omit<Category, 'id'>[] = [
     { name: 'Blog', slug: 'blog' },
 ];
 
-const initialSubCategories: Omit<SubCategory, 'id'>[] = [
-    { name: 'Getting Started', slug: 'getting-started', parentCategory: 'tutorials' },
-    { name: 'Advanced', slug: 'advanced', parentCategory: 'tutorials' },
-    { name: 'News', slug: 'news', parentCategory: 'blog' },
-    { name: 'Project Spotlights', slug: 'project-spotlights', parentCategory: 'blog' },
-];
+// REMOVED FOR DIAGNOSTICS
+// const initialSubCategories: Omit<SubCategory, 'id'>[] = [
+//     { name: 'Getting Started', slug: 'getting-started', parentCategory: 'tutorials' },
+//     { name: 'Advanced', slug: 'advanced', parentCategory: 'tutorials' },
+//     { name: 'News', slug: 'news', parentCategory: 'blog' },
+//     { name: 'Project Spotlights', slug: 'project-spotlights', parentCategory: 'blog' },
+// ];
 
 const initialArticles: Omit<Article, 'id'>[] = [
   {
@@ -124,8 +125,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const categoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'categories') : null), [firestore]);
   const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesCollection);
 
-  const subCategoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'subCategories') : null), [firestore]);
-  const { data: subCategories, isLoading: subCategoriesLoading } = useCollection<SubCategory>(subCategoriesCollection);
+  // REMOVED FOR DIAGNOSTICS
+  // const subCategoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'subCategories') : null), [firestore]);
+  const { data: subCategories, isLoading: subCategoriesLoading } = { data: [], isLoading: false };//useCollection<SubCategory>(subCategoriesCollection);
 
   const commentsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'comments') : null), [firestore]);
   const { data: comments, isLoading: commentsLoading } = useCollection<Comment>(commentsCollection);
@@ -171,10 +173,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         batch.set(categoryRef, category);
     });
 
-    initialSubCategories.forEach(subCategory => {
-        const subCategoryRef = doc(firestore, 'subCategories', `${subCategory.parentCategory}-${subCategory.slug}`);
-        batch.set(subCategoryRef, subCategory);
-    });
+    // REMOVED FOR DIAGNOSTICS
+    // initialSubCategories.forEach(subCategory => {
+    //     const subCategoryRef = doc(firestore, 'subCategories', `${subCategory.parentCategory}-${subCategory.slug}`);
+    //     batch.set(subCategoryRef, subCategory);
+    // });
 
     initialArticles.forEach(article => {
         const articleRef = doc(firestore, 'articles', article.slug);
