@@ -62,11 +62,11 @@ export default function MainSidebar() {
                                 <SidebarMenuSub>
                                     {value.subCategories.map(sub => (
                                         <SidebarMenuSubItem key={sub.slug}>
-                                            <Link href={`/${key}/${sub.slug}`} legacyBehavior>
-                                                <SidebarMenuSubButton isActive={pathname.endsWith(sub.slug)}>
+                                            <SidebarMenuSubButton asChild isActive={pathname.endsWith(sub.slug)}>
+                                                <Link href={`/${key}/${sub.slug}`}>
                                                     {sub.name}
-                                                </SidebarMenuSubButton>
-                                            </Link>
+                                                </Link>
+                                            </SidebarMenuSubButton>
                                         </SidebarMenuSubItem>
                                     ))}
                                 </SidebarMenuSub>
