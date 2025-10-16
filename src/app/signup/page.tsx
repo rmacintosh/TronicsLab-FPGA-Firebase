@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Cpu } from "lucide-react"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast";
-import { useAuth, useFirebase, useUser, setDocumentNonBlocking } from "@/firebase";
+import { useAuth, useFirebase, useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { setDoc, doc } from "firebase/firestore";
@@ -57,8 +57,8 @@ export default function SignupPage() {
             const userRef = doc(firestore, "users", userCredential.user.uid);
             const isAdmin = values.email === 'rmacintosh@gmail.com';
 
-            // Correctly use a non-blocking write for the user role document.
-            setDoc(userRef, {
+            // Use a standard, awaited setDoc to guarantee the write operation completes.
+            await setDoc(userRef, {
                 uid: userCredential.user.uid,
                 email: values.email,
                 role: isAdmin ? 'admin' : 'user',
