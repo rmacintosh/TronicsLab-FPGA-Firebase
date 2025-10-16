@@ -54,16 +54,12 @@ export default function SignupPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const newUser = userCredential.user;
 
+        // Create a user profile document in Firestore, but do not store roles here.
         if (newUser && firestore) {
             const userRef = doc(firestore, "users", newUser.uid);
-            const isAdmin = values.email === 'rmacintosh@gmail.com';
-
-            // Use an awaited setDoc to ensure this critical write completes.
-            // This guarantees the role is set before the user might navigate to the admin panel.
             await setDoc(userRef, {
                 uid: newUser.uid,
                 email: values.email,
-                role: isAdmin ? 'admin' : 'user',
                 createdAt: new Date().toISOString(),
             });
         }

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useCollection, useFirebase, addDocumentNonBlocking, WithId, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { useCollection, useFirebase, addDocumentNonBlocking, WithId, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, setDoc, writeBatch, getDocs, query, limit } from 'firebase/firestore';
 import type { Article, Category, SubCategory, Comment } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -113,15 +113,9 @@ const initialArticles: Omit<Article, 'id'>[] = [
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
-  const { user, isUserLoading } = useUser();
+  const { user, claims, isUserLoading } = useUser();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user?.uid]);
-  
-  const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
-  const isAdmin = userData?.role === 'admin';
+  const isAdmin = !!claims?.claims.admin;
 
   const articlesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'articles') : null), [firestore]);
   const { data: articles, isLoading: articlesLoading } = useCollection<Article>(articlesCollection);
@@ -189,7 +183,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     await batch.commit();
   };
 
-  const isLoading = articlesLoading || categoriesLoading || subCategoriesLoading || commentsLoading || isUserLoading;
+  const isRoleLoading = isUserLoading;
+  const isLoading = articlesLoading || categoriesLoading || subCategoriesLoading || commentsLoading || isRoleLoading;
 
   const value = {
     articles: articles || [],
@@ -201,8 +196,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     addSubCategory,
     seedDatabase,
     isLoading,
-    isAdmin: !isUserLoading && !isRoleLoading && isAdmin,
-    isRoleLoading: isUserLoading || isRoleLoading
+    isAdmin,
+    isRoleLoading
   };
 
   return (
@@ -219,5 +214,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    
