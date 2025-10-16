@@ -25,18 +25,19 @@ export default function AdminLayout({
   // isRoleLoading will be true until userDocRef is valid and data is fetched
   const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
 
+  // We are authenticating if we are still waiting for the user OR if we have a user but are still waiting for their role.
   const isAuthenticating = isUserLoading || (user && isRoleLoading);
 
   useEffect(() => {
-    // This effect runs when loading is finished.
-    // If, after everything has loaded, there is no user OR the user is not an admin, then redirect.
+    // This effect runs whenever the loading state or user data changes.
+    // If we are done authenticating and there is NO user, or the user is NOT an admin, then we redirect.
     if (!isAuthenticating && (!user || userData?.role !== 'admin')) {
       router.replace('/');
     }
   }, [isAuthenticating, user, userData, router]);
 
-  // If we are still authenticating, show a loading screen.
-  // This prevents the redirect from happening prematurely.
+  // If we are still in the process of authenticating, show a loading skeleton.
+  // This is the key part that prevents premature redirects.
   if (isAuthenticating) {
     return (
       <div className="space-y-8">
@@ -51,13 +52,14 @@ export default function AdminLayout({
     );
   }
 
-  // If loading is complete AND the user is an admin, render the children.
-  // The useEffect above handles the non-admin redirect case.
+  // If loading is complete AND we have confirmed the user's role is 'admin', render the children.
+  // The useEffect handles the non-admin redirect case, so we just need to check for the successful case here.
   if (userData?.role === 'admin') {
     return <>{children}</>;
   }
   
-  // As a final fallback (e.g., if redirect hasn't fired yet), show loading.
+  // As a final fallback (e.g., if the redirect from useEffect hasn't fired yet), continue showing the loading skeleton.
+  // This prevents a brief flash of content before redirection.
   return (
     <div className="space-y-8">
         <Skeleton className="h-10 w-1/2" />
