@@ -17,14 +17,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth, useUser } from "@/firebase"
-import { CreditCard, LogOut, MessageSquare, Settings, User as UserIcon } from "lucide-react"
+import { MessageSquare, Settings, LogOut } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "firebase/auth"
+import { useDoc, useFirebase, useMemoFirebase } from "@/firebase"
+import { doc } from "firebase/firestore"
 
 
 export function UserNav() {
-  const { user, claims, isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const { firestore } = useFirebase();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user?.uid]);
+
+  const { data: userData } = useDoc<{ role: string }>(userDocRef);
 
   const handleLogout = () => {
     signOut(auth);
@@ -49,7 +59,7 @@ export function UserNav() {
     )
   }
 
-  const isAdmin = claims?.claims?.admin === true;
+  const isAdmin = userData?.role === 'admin';
 
   return (
     <DropdownMenu>
@@ -64,7 +74,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.displayName || user.email}</p>
+            <p className="text-sm font-medium leading-none">{user.displayName || user.email?.split('@')[0]}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>

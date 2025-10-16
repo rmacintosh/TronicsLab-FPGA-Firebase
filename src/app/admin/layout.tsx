@@ -1,30 +1,40 @@
 
 "use client";
 
-import { useUser } from "@/firebase";
+import { useUser, useDoc, useFirebase, useMemoFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { doc } from "firebase/firestore";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, claims, isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
+  const { firestore } = useFirebase();
   const router = useRouter();
 
-  const isAdmin = claims?.claims?.admin === true;
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user?.uid]);
+
+  const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
+
+  const isLoading = isUserLoading || (user && isRoleLoading);
+  const isAdmin = userData?.role === 'admin';
 
   useEffect(() => {
     // If loading is finished and the user is not an admin, redirect.
-    if (!isUserLoading && !isAdmin) {
+    if (!isLoading && !isAdmin) {
       router.replace('/');
     }
-  }, [isUserLoading, isAdmin, router]);
+  }, [isLoading, isAdmin, router]);
 
   // While loading, or if the user is not an admin (and redirect is in progress), show a skeleton loader.
-  if (isUserLoading || !isAdmin) {
+  if (isLoading || !isAdmin) {
     return (
       <div className="space-y-8">
         <h1 className="font-headline text-4xl font-bold tracking-tight">Admin Panel</h1>
