@@ -75,7 +75,7 @@ export default function CreateArticlePage() {
 
     function onSubmit(values: z.infer<typeof articleSchema>) {
         let finalCategory = values.category;
-        let finalSubCategory = values.subCategory;
+        let finalSubCategorySlug = values.subCategory;
         let finalSubCategoryName = "";
 
         if (values.category === 'new' && values.newCategory) {
@@ -83,19 +83,19 @@ export default function CreateArticlePage() {
             addCategory(newCategorySlug, values.newCategory);
             finalCategory = newCategorySlug;
             
-            if (values.newSubCategory) {
+            if (values.subCategory === 'new' && values.newSubCategory) {
                 const newSubCategorySlug = slugify(values.newSubCategory);
                 addSubCategory(newCategorySlug, { name: values.newSubCategory, slug: newSubCategorySlug });
-                finalSubCategory = newSubCategorySlug;
+                finalSubCategorySlug = newSubCategorySlug;
                 finalSubCategoryName = values.newSubCategory;
             }
         } else if (values.subCategory === 'new' && values.newSubCategory) {
             const newSubCategorySlug = slugify(values.newSubCategory);
             addSubCategory(finalCategory, { name: values.newSubCategory, slug: newSubCategorySlug });
-            finalSubCategory = newSubCategorySlug;
+            finalSubCategorySlug = newSubCategorySlug;
             finalSubCategoryName = values.newSubCategory;
         } else {
-             const subCat = categories[finalCategory as keyof typeof categories]?.subCategories.find(sc => sc.slug === finalSubCategory);
+             const subCat = categories[finalCategory as keyof typeof categories]?.subCategories.find(sc => sc.slug === finalSubCategorySlug);
              finalSubCategoryName = subCat?.name || "";
         }
 
@@ -203,7 +203,7 @@ export default function CreateArticlePage() {
                                       >
                                         <FormControl>
                                           <SelectTrigger>
-                                            <SelectValue placeholder={isNewCategory ? "Define a new sub-category below" : "Select a sub-category"} />
+                                            <SelectValue placeholder={!selectedCategory ? "Select a category first" : (isNewCategory ? "Define a new sub-category below" : "Select a sub-category")} />
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -213,7 +213,7 @@ export default function CreateArticlePage() {
                                             <SelectItem value="new">Create new sub-category...</SelectItem>
                                         </SelectContent>
                                       </Select>
-                                      {(selectedSubCategory === 'new' || isNewCategory) && (
+                                      {(selectedSubCategory === 'new' || (isNewCategory && selectedCategory)) && (
                                         <FormField
                                           control={form.control}
                                           name="newSubCategory"
