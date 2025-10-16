@@ -9,7 +9,7 @@ import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { ai } from '../genkit';
-import { createAction } from '@genkit-ai/next/server';
+import { createAction } from '@genkit-ai/next/client';
 
 const MakeAdminOutputSchema = z.object({
   success: z.boolean(),
