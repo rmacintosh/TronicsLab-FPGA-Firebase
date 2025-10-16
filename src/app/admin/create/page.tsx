@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react";
@@ -12,14 +13,26 @@ import { categories } from "@/lib/data";
 type CategoryKey = keyof typeof categories;
 
 export default function CreateArticlePage() {
-    const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string>("");
+    const [newCategory, setNewCategory] = useState<string>("");
     const [selectedSubCategory, setSelectedSubCategory] = useState<string>("");
+    const [newSubCategory, setNewSubCategory] = useState<string>("");
 
     const handleCategoryChange = (value: string) => {
-        const categoryKey = value as CategoryKey;
-        setSelectedCategory(categoryKey);
+        setSelectedCategory(value);
         setSelectedSubCategory(""); // Reset subcategory when category changes
+        setNewCategory("");
+        setNewSubCategory("");
     };
+
+    const handleSubCategoryChange = (value: string) => {
+        setSelectedSubCategory(value);
+        setNewSubCategory("");
+    }
+    
+    const isNewCategory = selectedCategory === 'new';
+    const isNewSubCategory = selectedSubCategory === 'new';
+    const currentCategoryKey = selectedCategory as CategoryKey;
 
     return (
         <div className="space-y-8">
@@ -39,7 +52,7 @@ export default function CreateArticlePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label htmlFor="category">Category</Label>
-                            <Select onValueChange={handleCategoryChange}>
+                            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
                                 <SelectTrigger id="category">
                                     <SelectValue placeholder="Select a category" />
                                 </SelectTrigger>
@@ -47,25 +60,43 @@ export default function CreateArticlePage() {
                                     {Object.entries(categories).map(([key, value]) => (
                                         <SelectItem key={key} value={key}>{value.name}</SelectItem>
                                     ))}
+                                    <SelectItem value="new">Create new category...</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {isNewCategory && (
+                                <Input 
+                                    className="mt-2"
+                                    placeholder="Enter new category name"
+                                    value={newCategory}
+                                    onChange={(e) => setNewCategory(e.target.value)}
+                                />
+                            )}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="subcategory">Sub-category</Label>
                             <Select 
                                 value={selectedSubCategory} 
-                                onValueChange={setSelectedSubCategory}
-                                disabled={!selectedCategory}
+                                onValueChange={handleSubCategoryChange}
+                                disabled={!selectedCategory || isNewCategory}
                             >
                                 <SelectTrigger id="subcategory">
                                     <SelectValue placeholder="Select a sub-category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {selectedCategory && categories[selectedCategory].subCategories.map(sub => (
+                                    {selectedCategory && categories[currentCategoryKey] && categories[currentCategoryKey].subCategories.map(sub => (
                                         <SelectItem key={sub.slug} value={sub.slug}>{sub.name}</SelectItem>
                                     ))}
+                                     <SelectItem value="new">Create new sub-category...</SelectItem>
                                 </SelectContent>
                             </Select>
+                             { (isNewSubCategory || isNewCategory) && (
+                                <Input 
+                                    className="mt-2"
+                                    placeholder="Enter new sub-category name"
+                                    value={newSubCategory}
+                                    onChange={(e) => setNewSubCategory(e.target.value)}
+                                />
+                            )}
                         </div>
                     </div>
 
