@@ -25,13 +25,24 @@ const articleSchema = z.object({
     message: "New category name cannot be empty.",
     path: ["newCategory"],
 }).refine(data => {
-    if (data.category === 'new' && data.subCategory !== 'new') return true;
-    if (data.category === 'new' && data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0) return true;
-    if (data.category === 'new') return true; 
+    if (data.category !== 'new' && data.subCategory !== 'new') return true; // Both existing
+    if (data.category === 'new' && data.subCategory !== 'new') return true; // New category, but no subcategory action
+    if (data.category === 'new' && data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0) return true; // Both new
+    
+    // Existing category, new subcategory
+    const currentCategoryData = useData.getState().categories[data.category as keyof ReturnType<typeof useData>['categories']];
+    if (currentCategoryData) {
+        if (data.subCategory !== 'new') return true;
+        if (data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0) return true;
+    }
 
-    const selectedCategoryData = useData.getState().categories[data.category as keyof ReturnType<typeof useData>['categories']];
-    if (!selectedCategoryData) return true;
-    return data.subCategory !== 'new' || (data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0);
+    // New category requires new subcategory name if 'new' is selected for subcategory
+    if (data.category === 'new') {
+        if (data.subCategory !== 'new') return true; // No sub-cat to validate.
+        return data.subCategory === 'new' && data.newSubCategory && data.newSubCategory.length > 0;
+    }
+
+    return false;
 }, {
     message: "New sub-category name cannot be empty.",
     path: ["newSubCategory"],
@@ -81,24 +92,21 @@ export default function CreateArticlePage() {
         let finalCategorySlug = values.category;
         let finalSubCategorySlug = values.subCategory;
         let finalSubCategoryName = "";
+        let currentCategories = categories;
 
-        // Case 1: New Category is created
         if (values.category === 'new' && values.newCategory) {
             const newCategorySlug = slugify(values.newCategory);
-            addCategory(newCategorySlug, values.newCategory);
+            currentCategories = addCategory(newCategorySlug, values.newCategory);
             finalCategorySlug = newCategorySlug;
         }
 
-        // Case 2: New Sub-category is created
         if (values.subCategory === 'new' && values.newSubCategory) {
             const newSubCategorySlug = slugify(values.newSubCategory);
-            // `finalCategorySlug` will be either the existing category slug or the newly created one.
             addSubCategory(finalCategorySlug, { name: values.newSubCategory, slug: newSubCategorySlug });
             finalSubCategorySlug = newSubCategorySlug;
             finalSubCategoryName = values.newSubCategory;
-        } else {
-             // Case 3: Existing sub-category is used
-             const subCat = categories[finalCategorySlug as keyof typeof categories]?.subCategories.find(sc => sc.slug === finalSubCategorySlug);
+        } else if (finalSubCategorySlug) {
+             const subCat = currentCategories[finalCategorySlug as keyof typeof currentCategories]?.subCategories.find(sc => sc.slug === finalSubCategorySlug);
              finalSubCategoryName = subCat?.name || "";
         }
 
@@ -202,11 +210,11 @@ export default function CreateArticlePage() {
                                       <Select 
                                         onValueChange={handleSubCategoryChange} 
                                         value={field.value}
-                                        disabled={!selectedCategory}
+                                        disabled={!selectedCategory || (selectedCategory === 'new' && !form.getValues().newCategory)}
                                       >
                                         <FormControl>
                                           <SelectTrigger>
-                                            <SelectValue placeholder={!selectedCategory ? "Select a category first" : (isNewCategory ? "Create a new sub-category or select 'new'" : "Select a sub-category")} />
+                                            <SelectValue placeholder={!selectedCategory ? "Select a category first" : "Select a sub-category"} />
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -216,7 +224,7 @@ export default function CreateArticlePage() {
                                             <SelectItem value="new">Create new sub-category...</SelectItem>
                                         </SelectContent>
                                       </Select>
-                                      {(selectedSubCategory === 'new' || (isNewCategory && selectedCategory)) && (
+                                      {selectedSubCategory === 'new' && (
                                         <FormField
                                           control={form.control}
                                           name="newSubCategory"
@@ -276,5 +284,3 @@ export default function CreateArticlePage() {
         </div>
     )
 }
-
-    

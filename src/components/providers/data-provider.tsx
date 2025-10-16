@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState } from 'react';
@@ -8,7 +9,7 @@ interface DataContextProps {
   categories: Category;
   comments: Comment[];
   addArticle: (article: Article) => void;
-  addCategory: (slug: string, name: string) => void;
+  addCategory: (slug: string, name: string) => Category;
   addSubCategory: (categorySlug: string, subCategory: { name: string, slug: string }) => void;
 }
 
@@ -24,10 +25,12 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const addCategory = (slug: string, name: string) => {
-    setCategories(prev => ({
-      ...prev,
+    const newCategories = {
+      ...categories,
       [slug]: { name, subCategories: [] },
-    }));
+    };
+    setCategories(newCategories);
+    return newCategories;
   };
 
   const addSubCategory = (categorySlug: string, subCategory: { name: string, slug: string }) => {
