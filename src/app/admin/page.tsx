@@ -2,12 +2,30 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilePlus, MessageSquare, Users } from "lucide-react";
+import { FilePlus, MessageSquare, Users, Database } from "lucide-react";
 import Link from "next/link";
 import { useData } from "@/components/providers/data-provider";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
-  const { articles, comments } = useData();
+  const { articles, comments, seedDatabase } = useData();
+  const { toast } = useToast();
+
+  const handleSeedDatabase = async () => {
+    try {
+      await seedDatabase();
+      toast({
+        title: "Database Seeded",
+        description: "The initial data has been successfully loaded into Firestore.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error Seeding Database",
+        description: error.message || "An unexpected error occurred.",
+      });
+    }
+  };
   
   return (
     <div className="space-y-8">
@@ -67,6 +85,9 @@ export default function AdminDashboard() {
                 <Link href="/admin/comments">
                     <MessageSquare className="mr-2 h-4 w-4" /> Manage Comments
                 </Link>
+            </Button>
+            <Button onClick={handleSeedDatabase} variant="outline">
+              <Database className="mr-2 h-4 w-4" /> Seed Database
             </Button>
         </CardContent>
       </Card>
