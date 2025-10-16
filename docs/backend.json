@@ -1,0 +1,248 @@
+{
+  "entities": {
+    "Article": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Article",
+      "type": "object",
+      "description": "Represents an article or tutorial on electronics and FPGA development.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Article entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the article."
+        },
+        "content": {
+          "type": "string",
+          "description": "The main content of the article, including text, code snippets, links, and embedded media."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Reference to the Author who created the article. (Relationship: Author 1:N Article)"
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to the Category the article belongs to. (Relationship: Category 1:N Article)"
+        },
+        "publicationDate": {
+          "type": "string",
+          "description": "The date and time when the article was published.",
+          "format": "date-time"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags associated with the article.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content",
+        "authorId",
+        "categoryId",
+        "publicationDate"
+      ]
+    },
+    "Author": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Author",
+      "type": "object",
+      "description": "Represents the author of an article.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Author entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the author."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the author.",
+          "format": "email"
+        },
+        "bio": {
+          "type": "string",
+          "description": "A brief biography of the author."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a category for organizing articles.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Category entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the category."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the category."
+        },
+        "parentCategoryId": {
+          "type": "string",
+          "description": "Reference to the parent category, allowing for hierarchical categories. Null if it's a top-level category. (Relationship: Category 1:N Category)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ]
+    },
+    "Comment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Comment",
+      "type": "object",
+      "description": "Represents a comment on an article.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Comment entity."
+        },
+        "articleId": {
+          "type": "string",
+          "description": "Reference to the Article the comment belongs to. (Relationship: Article 1:N Comment)"
+        },
+        "authorName": {
+          "type": "string",
+          "description": "The name of the person who made the comment."
+        },
+        "authorEmail": {
+          "type": "string",
+          "description": "The email address of the commenter.",
+          "format": "email"
+        },
+        "commentText": {
+          "type": "string",
+          "description": "The text of the comment."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when the comment was made.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "articleId",
+        "authorName",
+        "authorEmail",
+        "commentText",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/articles/{articleId}",
+        "definition": {
+          "entityName": "Article",
+          "schema": {
+            "$ref": "#/backend/entities/Article"
+          },
+          "description": "Stores article data. Includes `authorId` and `categoryId` for easy querying. Includes denormalized 'members' map for authorization independence.",
+          "params": [
+            {
+              "name": "articleId",
+              "description": "Unique identifier for the article."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/articles/{articleId}",
+        "definition": {
+          "entityName": "Article",
+          "schema": {
+            "$ref": "#/backend/entities/Article"
+          },
+          "description": "Stores articles created by a specific user. Enables path-based ownership for simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            },
+            {
+              "name": "articleId",
+              "description": "Unique identifier for the article."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/authors/{authorId}",
+        "definition": {
+          "entityName": "Author",
+          "schema": {
+            "$ref": "#/backend/entities/Author"
+          },
+          "description": "Stores author information.",
+          "params": [
+            {
+              "name": "authorId",
+              "description": "Unique identifier for the author."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Stores category information. `parentCategoryId` allows for hierarchical categories.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "Unique identifier for the category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/comments/{commentId}",
+        "definition": {
+          "entityName": "Comment",
+          "schema": {
+            "$ref": "#/backend/entities/Comment"
+          },
+          "description": "Stores comments for articles. Includes `articleId` for efficient querying of comments for a specific article.",
+          "params": [
+            {
+              "name": "commentId",
+              "description": "Unique identifier for the comment."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to optimize for persistent articles, clear ownership, and efficient querying. It leverages structural segregation and denormalization to enhance security and performance.\n\n*   `/articles`: Stores the core article data. This collection utilizes a flat structure for efficient listing and querying of articles across all categories and authors. The `authorId` and `categoryId` are stored directly within the article document, facilitating simple queries and eliminating the need for complex joins.\n*   `/users/{userId}/articles`: Used for quick authorization of owned objects. The primary benefit of this design is that it supports simple, scalable security rules that do not require reading from multiple documents. The `userId` in the path implicitly defines the owner, making rule creation straightforward. In addition the `members` map in the `articles` document also denormalizes authorization.\n*   `/categories`: Stores category information. A flat collection enables easy management and querying of categories. The `parentCategoryId` allows for hierarchical structuring, which is handled in the application logic rather than through complex Firestore queries.\n*   `/comments`: Stores comments for articles. It denormalizes `articleId` for efficient querying of comments associated with a specific article.\n\nThis design prioritizes Authorization Independence by denormalizing authorization data (authorId, categoryId) directly into the article documents. This avoids the need for `get()` calls in security rules, ensuring that operations remain atomic and debuggable. QAPs are supported through structural segregation, ensuring that all documents within a collection share the same security requirements, simplifying list operations."
+  }
+}
