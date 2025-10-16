@@ -26,7 +26,7 @@ export default function AdminLayout({
   const { data: userData, isLoading: isRoleLoading } = useDoc<{ role: string }>(userDocRef);
 
   // We are authenticating if we are still waiting for the user OR if we have a user but are still waiting for their role.
-  const isAuthenticating = isUserLoading || (user && isRoleLoading);
+  const isAuthenticating = isUserLoading || (!!user && isRoleLoading);
 
   useEffect(() => {
     // This effect runs whenever the loading state or user data changes.
@@ -41,7 +41,7 @@ export default function AdminLayout({
   if (isAuthenticating) {
     return (
       <div className="space-y-8">
-        <Skeleton className="h-10 w-1/2" />
+        <h1 className="font-headline text-4xl font-bold tracking-tight">Admin Panel</h1>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-28 w-full" />
@@ -58,17 +58,17 @@ export default function AdminLayout({
     return <>{children}</>;
   }
   
-  // As a final fallback (e.g., if the redirect from useEffect hasn't fired yet), continue showing the loading skeleton.
-  // This prevents a brief flash of content before redirection.
+  // As a final fallback (e.g., if the redirect from useEffect hasn't fired yet), show the loading skeleton.
+  // This prevents a brief flash of un-guarded content before redirection.
   return (
-    <div className="space-y-8">
-        <Skeleton className="h-10 w-1/2" />
+      <div className="space-y-8">
+        <h1 className="font-headline text-4xl font-bold tracking-tight">Admin Panel</h1>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
         </div>
         <Skeleton className="h-40 w-full" />
-    </div>
+      </div>
   );
 }
