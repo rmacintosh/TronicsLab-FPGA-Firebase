@@ -24,7 +24,7 @@ export default function Home() {
         <h2 className="font-headline text-3xl font-semibold tracking-tight mb-6">Featured Articles</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {featuredArticles.map((article) => (
-            <Card key={article.slug} className="flex flex-col overflow-hidden">
+            <Card key={article.id} className="flex flex-col overflow-hidden">
               <CardHeader className="p-0">
                 <Link href={`/articles/${article.slug}`} className="block">
                   <Image

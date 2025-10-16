@@ -36,8 +36,8 @@ export default function ManageCommentsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {comments.map((comment, index) => (
-                                <TableRow key={index}>
+                            {comments.map((comment) => (
+                                <TableRow key={comment.id}>
                                     <TableCell>
                                         <div className="font-medium">{comment.userEmail.split('@')[0]}</div>
                                         <div className="text-xs text-muted-foreground">{comment.userEmail}</div>

@@ -3,17 +3,18 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInput, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from "@/components/ui/sidebar"
-import { user } from "@/lib/data"
 import { BookOpen, Cpu, Home, Newspaper, Search, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserNav } from "../user-nav"
 import { ThemeToggle } from "../theme-toggle"
 import { useData } from "../providers/data-provider"
+import { useUser } from "@/firebase"
 
 export default function MainSidebar() {
     const pathname = usePathname();
-    const { categories, articles } = useData();
+    const { categories, subCategories, articles } = useData();
+    const { user } = useUser();
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
@@ -21,8 +22,12 @@ export default function MainSidebar() {
         { href: "/blog", label: "Blog", icon: Newspaper },
     ];
 
-    const getArticlesForSubCategory = (categorySlug: string, subCategorySlug: string) => {
-        return articles.filter(a => a.category === categorySlug && a.subCategory === subCategorySlug);
+    const getArticlesForSubCategory = (categorySlug: string, subCategoryName: string) => {
+        return articles.filter(a => a.category === categorySlug && a.subCategory === subCategoryName);
+    }
+    
+    const getSubcategoriesForCategory = (categorySlug: string) => {
+        return subCategories.filter(sc => sc.parentCategory === categorySlug);
     }
 
     return (
@@ -57,24 +62,24 @@ export default function MainSidebar() {
                 </SidebarMenu>
 
                 <Accordion type="multiple" defaultValue={['tutorials', 'blog']} className="w-full mt-4">
-                    {Object.entries(categories).map(([categoryKey, categoryValue]) => (
-                        <AccordionItem value={categoryKey} key={categoryKey}>
+                    {categories.map((category) => (
+                        <AccordionItem value={category.slug} key={category.id}>
                             <AccordionTrigger className="text-sm font-medium text-muted-foreground hover:no-underline hover:text-foreground p-2 rounded-md hover:bg-accent/50">
-                                {categoryValue.name}
+                                {category.name}
                             </AccordionTrigger>
                             <AccordionContent>
-                                {categoryValue.subCategories.length > 0 && (
+                                {getSubcategoriesForCategory(category.slug).length > 0 && (
                                     <SidebarMenuSub>
-                                        {categoryValue.subCategories.map(sub => (
-                                            <Accordion type="single" collapsible key={`${categoryKey}-${sub.slug}`}>
+                                        {getSubcategoriesForCategory(category.slug).map(sub => (
+                                            <Accordion type="single" collapsible key={sub.id}>
                                                 <AccordionItem value={sub.slug}>
                                                      <AccordionTrigger className="text-xs font-medium text-muted-foreground hover:no-underline hover:text-foreground p-2 rounded-md">
                                                         {sub.name}
                                                     </AccordionTrigger>
                                                     <AccordionContent>
                                                         <SidebarMenuSub>
-                                                            {getArticlesForSubCategory(categoryKey, sub.name).map(article => (
-                                                                <SidebarMenuSubItem key={article.slug}>
+                                                            {getArticlesForSubCategory(category.slug, sub.name).map(article => (
+                                                                <SidebarMenuSubItem key={article.id}>
                                                                     <SidebarMenuSubButton asChild isActive={pathname.endsWith(article.slug)}>
                                                                         <Link href={`/articles/${article.slug}`}>
                                                                             {article.title}
@@ -94,7 +99,7 @@ export default function MainSidebar() {
                     ))}
                 </Accordion>
 
-                {user.isAdmin && (
+                {user?.email === 'admin@troniclab.com' && (
                     <div className="mt-auto pt-4">
                         <h3 className="px-2 text-xs font-medium text-muted-foreground mb-2">Admin</h3>
                         <SidebarMenu>
@@ -111,7 +116,7 @@ export default function MainSidebar() {
                 )}
             </SidebarContent>
             <SidebarFooter className="p-2 border-t flex-row items-center justify-between">
-                <UserNav user={user} />
+                <UserNav />
                 <ThemeToggle />
             </SidebarFooter>
         </Sidebar>

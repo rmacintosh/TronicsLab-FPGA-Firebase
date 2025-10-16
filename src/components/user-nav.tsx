@@ -15,35 +15,38 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useUser } from "@/firebase"
 import { CreditCard, LogOut, Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
 
-type User = {
-    name: string;
-    email: string;
-    avatar: string;
-    isAdmin?: boolean;
-}
 
-interface UserNavProps {
-    user: User;
-}
+export function UserNav() {
+  const { user } = useUser();
 
-export function UserNav({ user }: UserNavProps) {
+  if (!user) {
+    return (
+      <Button asChild>
+        <Link href="/login">Login</Link>
+      </Button>
+    )
+  }
+
+  const isAdmin = user.email === 'admin@troniclab.com';
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`} alt={user.displayName || ""} />
+            <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none">{user.displayName || user.email}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
@@ -65,7 +68,7 @@ export function UserNav({ user }: UserNavProps) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        {user.isAdmin && (
+        {isAdmin && (
             <>
                 <Link href="/admin">
                     <DropdownMenuItem>

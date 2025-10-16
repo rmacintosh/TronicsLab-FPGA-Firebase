@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { useForm } from "react-hook-form";
@@ -13,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/components/providers/data-provider";
+import { useUser } from "@/firebase";
 
 const articleSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -46,7 +45,8 @@ const articleSchema = z.object({
 
 export default function CreateArticlePage() {
     const { toast } = useToast();
-    const { categories, setCategories, addArticle, articles } = useData();
+    const { categories, subCategories, addArticle, addCategory, addSubCategory, articles } = useData();
+    const { user } = useUser();
 
     const form = useForm<z.infer<typeof articleSchema>>({
         resolver: zodResolver(articleSchema),
@@ -66,12 +66,9 @@ export default function CreateArticlePage() {
     
     const isNewCategory = selectedCategory === 'new';
     
-    const subcategories = (selectedCategory && categories[selectedCategory as keyof typeof categories])
-        ? categories[selectedCategory as keyof typeof categories].subCategories
-        : [];
+    const currentSubcategories = selectedCategory ? subCategories.filter(sc => sc.parentCategory === selectedCategory) : [];
 
     const isSubCategoryDisabled = !selectedCategory || (isNewCategory && !newCategoryValue);
-
 
     const handleCategoryChange = (value: string) => {
         form.setValue("category", value);
@@ -89,59 +86,38 @@ export default function CreateArticlePage() {
         return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
     }
 
-    function onSubmit(values: z.infer<typeof articleSchema>) {
+    async function onSubmit(values: z.infer<typeof articleSchema>) {
         let finalCategorySlug: string;
+        let finalSubCategorySlug: string;
         let finalSubCategoryName: string;
-        let finalCategoryName: string;
-        let updatedCategories = { ...categories };
         
-        // Step 1: Determine the final category and update categories state if new
         if (values.category === 'new' && values.newCategory) {
-            finalCategoryName = values.newCategory;
             finalCategorySlug = slugify(values.newCategory);
-            
-            if (!updatedCategories[finalCategorySlug]) {
-                updatedCategories = {
-                    ...updatedCategories,
-                    [finalCategorySlug]: { name: finalCategoryName, subCategories: [] },
-                };
-            }
+            await addCategory({ name: values.newCategory, slug: finalCategorySlug });
         } else {
             finalCategorySlug = values.category;
-            finalCategoryName = updatedCategories[finalCategorySlug as keyof typeof updatedCategories]?.name || '';
         }
     
-        // Step 2: Determine the final sub-category and update categories state if new
         if (values.subCategory === 'new' && values.newSubCategory) {
             finalSubCategoryName = values.newSubCategory;
-            const newSubCategorySlug = slugify(values.newSubCategory);
-            
-            const categoryToUpdate = updatedCategories[finalCategorySlug as keyof typeof updatedCategories];
-            if (categoryToUpdate) {
-                const subCategoryExists = categoryToUpdate.subCategories.some(sc => sc.slug === newSubCategorySlug);
-                if (!subCategoryExists) {
-                    categoryToUpdate.subCategories.push({ name: finalSubCategoryName, slug: newSubCategorySlug });
-                }
-            }
+            finalSubCategorySlug = slugify(values.newSubCategory);
+            await addSubCategory({ name: finalSubCategoryName, slug: finalSubCategorySlug, parentCategory: finalCategorySlug });
         } else if (values.subCategory) {
-            const subCatData = updatedCategories[finalCategorySlug as keyof typeof updatedCategories]?.subCategories.find(sc => sc.slug === values.subCategory);
+            finalSubCategorySlug = values.subCategory;
+            const subCatData = subCategories.find(sc => sc.slug === values.subCategory && sc.parentCategory === finalCategorySlug);
             finalSubCategoryName = subCatData?.name || "";
         } else {
             finalSubCategoryName = "";
         }
     
-        // Step 3: Commit the updated categories to the global state
-        setCategories(updatedCategories);
-
-        // Step 4: Create the new article object
         const newArticle = {
             slug: slugify(values.title),
             title: values.title,
             description: values.content.substring(0, 100) + '...',
             category: finalCategorySlug,
             subCategory: finalSubCategoryName,
-            author: 'Admin',
-            date: new Date().toISOString().split('T')[0],
+            author: user?.email || 'Admin',
+            date: new Date().toISOString(),
             views: 0,
             image: {
                 id: 'new-article',
@@ -151,10 +127,8 @@ export default function CreateArticlePage() {
             content: `<p>${values.content}</p>`,
         };
     
-        // Step 5: Add the new article to the global state
-        addArticle(newArticle);
+        await addArticle(newArticle);
     
-        // Step 6: Show confirmation and reset the form
         toast({
             title: "Article Published!",
             description: `The article "${values.title}" has been successfully published.`,
@@ -203,8 +177,8 @@ export default function CreateArticlePage() {
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                          {Object.entries(categories).map(([key, value]) => (
-                                            <SelectItem key={key} value={key}>{value.name}</SelectItem>
+                                          {categories.map((cat) => (
+                                            <SelectItem key={cat.id} value={cat.slug}>{cat.name}</SelectItem>
                                           ))}
                                           <SelectItem value="new">Create new category...</SelectItem>
                                         </SelectContent>
@@ -244,8 +218,8 @@ export default function CreateArticlePage() {
                                           </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {subcategories.map(sub => (
-                                                <SelectItem key={sub.slug} value={sub.slug}>{sub.name}</SelectItem>
+                                            {currentSubcategories.map(sub => (
+                                                <SelectItem key={sub.id} value={sub.slug}>{sub.name}</SelectItem>
                                             ))}
                                             {!isSubCategoryDisabled && <SelectItem value="new">Create new sub-category...</SelectItem>}
                                         </SelectContent>
@@ -310,5 +284,3 @@ export default function CreateArticlePage() {
         </div>
     )
 }
-
-    

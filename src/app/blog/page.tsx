@@ -22,7 +22,7 @@ export default function BlogPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {blogArticles.map((article) => (
-          <Card key={article.slug} className="flex flex-col overflow-hidden">
+          <Card key={article.id} className="flex flex-col overflow-hidden">
             <CardHeader className="p-0">
               <Link href={`/articles/${article.slug}`} className="block">
                 <Image

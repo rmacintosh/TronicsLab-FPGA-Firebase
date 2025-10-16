@@ -1,6 +1,5 @@
 "use client"
 
-import { user } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,18 +13,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useData } from "@/components/providers/data-provider";
 import { use } from "react";
+import { useUser } from "@/firebase";
 
 export default function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const { articles, comments } = useData();
   const article = articles.find((a) => a.slug === slug);
+  const { user } = useUser();
 
   if (!article) {
     notFound();
   }
   
   const articleComments = comments.filter(c => c.articleSlug === article.slug);
-  const author = user;
+  const author = {
+      name: article.author,
+      avatar: `https://picsum.photos/seed/${article.author}/100/100`
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -86,8 +90,8 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
       <section className="mt-16 border-t pt-12">
         <h2 className="font-headline text-3xl font-semibold mb-8">Comments ({articleComments.length})</h2>
         <div className="space-y-8">
-            {articleComments.map((comment, index) => (
-                <div key={index} className="flex gap-4">
+            {articleComments.map((comment) => (
+                <div key={comment.id} className="flex gap-4">
                     <Avatar>
                         <AvatarFallback>{comment.userEmail.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>

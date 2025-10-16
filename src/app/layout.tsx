@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import MainSidebar from "@/components/layout/main-sidebar";
 import { MainContent } from "@/components/layout/main-content";
 import { DataProvider } from "@/components/providers/data-provider";
+import { FirebaseClientProvider } from "@/firebase";
 
 export const metadata: Metadata = {
   title: "TronicsLab: FPGA",
@@ -27,15 +28,17 @@ export default function RootLayout({
       </head>
       <body className={cn("font-body antialiased", "min-h-screen bg-background")}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <DataProvider>
-            <SidebarProvider>
-                <MainSidebar />
-                <MainContent>
-                  {children}
-                </MainContent>
-              <Toaster />
-            </SidebarProvider>
-          </DataProvider>
+          <FirebaseClientProvider>
+            <DataProvider>
+              <SidebarProvider>
+                  <MainSidebar />
+                  <MainContent>
+                    {children}
+                  </MainContent>
+                <Toaster />
+              </SidebarProvider>
+            </DataProvider>
+          </FirebaseClientProvider>
         </ThemeProvider>
       </body>
     </html>
