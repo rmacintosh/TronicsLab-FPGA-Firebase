@@ -10,21 +10,12 @@ import { usePathname } from "next/navigation"
 import { UserNav } from "../user-nav"
 import { ThemeToggle } from "../theme-toggle"
 import { useData } from "../providers/data-provider"
-import { useDoc, useFirebase, useMemoFirebase, useUser } from "@/firebase"
-import { doc } from "firebase/firestore"
+import { useUser } from "@/firebase"
 
 export default function MainSidebar() {
     const pathname = usePathname();
     const { categories, subCategories, articles } = useData();
-    const { user } = useUser();
-    const { firestore } = useFirebase();
-
-    const userDocRef = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [firestore, user]);
-
-    const { data: userData } = useDoc<{ role: string }>(userDocRef);
+    const { user, claims } = useUser();
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
@@ -40,7 +31,7 @@ export default function MainSidebar() {
         return subCategories.filter(sc => sc.parentCategory === categorySlug);
     }
     
-    const isAdmin = !!user && userData?.role === 'admin';
+    const isAdmin = !!user && claims?.claims?.admin === true;
 
     return (
         <Sidebar>

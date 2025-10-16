@@ -16,25 +16,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth, useDoc, useFirebase, useUser } from "@/firebase"
+import { useAuth, useUser } from "@/firebase"
 import { CreditCard, LogOut, MessageSquare, Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "firebase/auth"
-import { doc } from "firebase/firestore"
-import { useMemo } from "react"
 
 
 export function UserNav() {
-  const { user, isUserLoading } = useUser();
+  const { user, claims, isUserLoading } = useUser();
   const auth = useAuth();
-  const { firestore } = useFirebase();
-
-  const userDocRef = useMemo(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-
-  const { data: userData } = useDoc<{ role: string }>(userDocRef);
 
   const handleLogout = () => {
     signOut(auth);
@@ -59,7 +49,7 @@ export function UserNav() {
     )
   }
 
-  const isAdmin = userData?.role === 'admin';
+  const isAdmin = claims?.claims?.admin === true;
 
   return (
     <DropdownMenu>
