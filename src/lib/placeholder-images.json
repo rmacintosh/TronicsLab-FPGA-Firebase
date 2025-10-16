@@ -1,3 +1,40 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "fpga-basics",
+      "description": "An introductory image for FPGA basics.",
+      "imageUrl": "https://picsum.photos/seed/101/600/400",
+      "imageHint": "circuit board"
+    },
+    {
+      "id": "verilog-hello-world",
+      "description": "Image for a Verilog 'Hello World' tutorial.",
+      "imageUrl": "https://picsum.photos/seed/102/600/400",
+      "imageHint": "code screen"
+    },
+    {
+      "id": "led-blinker-project",
+      "description": "Image for an LED blinker project.",
+      "imageUrl": "https://picsum.photos/seed/103/600/400",
+      "imageHint": "led lights"
+    },
+    {
+      "id": "advanced-fsm",
+      "description": "Image for an advanced finite state machine article.",
+      "imageUrl": "https://picsum.photos/seed/104/600/400",
+      "imageHint": "abstract flowchart"
+    },
+    {
+      "id": "optimizing-verilog",
+      "description": "Image for an article on optimizing Verilog code.",
+      "imageUrl": "https://picsum.photos/seed/105/600/400",
+      "imageHint": "data processing"
+    },
+    {
+      "id": "soc-design",
+      "description": "Image for an article on System on Chip design.",
+      "imageUrl": "https://picsum.photos/seed/106/600/400",
+      "imageHint": "microchip technology"
+    }
+  ]
 }
