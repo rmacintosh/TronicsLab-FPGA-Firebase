@@ -9,6 +9,7 @@ import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { ai } from '../genkit';
+import { createAction } from '@genkit-ai/next/server';
 
 const MakeAdminOutputSchema = z.object({
   success: z.boolean(),
@@ -25,7 +26,7 @@ function initializeFirebaseAdmin(): App {
     return initializeApp();
 }
 
-export const makeAdmin = ai.defineFlow(
+const makeAdminFlow = ai.defineFlow(
   {
     name: 'makeAdminFlow',
     inputSchema: z.void(),
@@ -93,3 +94,6 @@ export const makeAdmin = ai.defineFlow(
     }
   }
 );
+
+
+export const makeAdmin = createAction(makeAdminFlow);
