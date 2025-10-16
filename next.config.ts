@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 import {withGenkit} from '@genkit-ai/next/plugin';
 
@@ -24,7 +25,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'https',
+        protocol: 'https' as const,
         hostname: 'picsum.photos',
         port: '',
         pathname: '/**',
