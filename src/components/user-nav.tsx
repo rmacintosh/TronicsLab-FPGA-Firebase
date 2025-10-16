@@ -1,3 +1,4 @@
+
 "use client"
 
 import {
@@ -16,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth, useDoc, useFirebase, useUser } from "@/firebase"
-import { CreditCard, LogOut, Settings, User as UserIcon } from "lucide-react"
+import { CreditCard, LogOut, MessageSquare, Settings, User as UserIcon } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "firebase/auth"
 import { doc } from "firebase/firestore"
@@ -81,18 +82,12 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <UserIcon className="mr-2 h-4 w-4" />
-            <span>Profile</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Billing</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-          </DropdownMenuItem>
+          <Link href="/profile">
+            <DropdownMenuItem>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              <span>My Comments</span>
+            </DropdownMenuItem>
+          </Link>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {isAdmin && (
