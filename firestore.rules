@@ -1,112 +1,143 @@
 /**
- * @file Firebase Security Rules for Firestore.
+ * @fileoverview Firestore Security Rules for the application.
  *
- * @Core Philosophy: This ruleset prioritizes secure access based on ownership and public readability where appropriate.
- *   It leverages path-based authorization for user-specific data and denormalization to avoid costly `get()` calls.
- *   Schema enforcement is minimal to allow for rapid prototyping.
+ * Core Philosophy:
+ * This ruleset prioritizes strong authorization and clear ownership, using structural segregation
+ * and data denormalization to ensure secure and efficient data access. It enforces strict
+ * user-based access control, with flexible data schemas to facilitate rapid prototyping.
  *
- * @Data Structure:
- *   - `/articles/{articleId}`: Publicly readable articles with owner-only writes.  The `authorId` field in each document
- *     is used to determine ownership.
- *   - `/users/{userId}/articles/{articleId}`: Articles owned by a specific user, enabling strict ownership checks.
- *   - `/authors/{authorId}`: Information about authors.
- *   - `/categories/{categoryId}`: Information about article categories.
- *   - `/comments/{commentId}`: Comments on articles, publicly readable.
+ * Data Structure:
+ * - /articles/{articleId}: Public articles with denormalized authorization data.
+ * - /users/{userId}/articles/{articleId}: Private articles owned by a specific user.
+ * - /authors/{authorId}: Author profiles.
+ * - /categories/{categoryId}: Article categories.
+ * - /comments/{commentId}: Comments on articles.
  *
- * @Key Security Decisions:
- *   - Public read access is granted to the `/articles` and `/comments` collections.  Writes are restricted to the owner.
- *   - Listing of documents is allowed for the owner in user-scoped subcollections (e.g., `/users/{userId}/articles`).
- *   - No user listing is allowed.
- *   - The `authorId` field in `/articles/{articleId}` is used to control write access.
- *
- * @Denormalization for Authorization:
- *   - The `authorId` field is denormalized into the `/articles/{articleId}` documents to allow for fast ownership checks
- *     without additional reads.
- *
- * @Structural Segregation:
- *   - Articles are stored in both `/articles` (public) and `/users/{userId}/articles` (private) collections to provide
- *     both public and private access patterns.
+ * Key Security Decisions:
+ * - Public Read for Articles: The /articles collection is publicly readable to enable discovery.
+ * - Owner-Only Writes: Write access to both /articles and /users/{userId}/articles is strictly limited to the document owner.
+ * - Denormalization for Authorization: The `authorId` field in the `/articles` collection facilitates owner-based access control without requiring additional reads. The members map also allows for non-owner authorization.
+ * - No User Listing: Listing of users is not permitted to protect user privacy.
+ * - Flexible Schemas: Data type validation is minimized to allow for rapid schema iteration during prototyping.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public read access to articles and restricts write access to the owner.
+     * @description Grants public read access to articles and restricts write access to the owner.
      * @path /articles/{articleId}
-     * @allow (get, list)
-     * @allow (create) if request.auth.uid != null && request.resource.data.authorId == request.auth.uid
-     * @allow (update, delete) if request.auth.uid != null && resource.data.authorId == request.auth.uid && resource != null
-     * @deny (create) if request.auth.uid == null
-     * @deny (update, delete) if request.auth.uid == null || resource.data.authorId != request.auth.uid || resource == null
-     * @principle Allows public reads while enforcing document ownership for writes.
+     * @allow get, list: if true;
+     * @allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+     * @allow update: if isSignedIn() && resource.data.authorId == request.auth.uid && resource != null;
+     * @allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid && resource != null;
+     * @deny create: if request.auth == null;
+     * @deny update: if !isSignedIn() || resource.data.authorId != request.auth.uid || resource == null;
+     * @deny delete: if !isSignedIn() || resource.data.authorId != request.auth.uid || resource == null;
+     * @principle Public read, owner-only writes enforced using the `authorId` field.
      */
     match /articles/{articleId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
       allow update: if isExistingOwner(resource.data.authorId);
       allow delete: if isExistingOwner(resource.data.authorId);
     }
 
     /**
-     * @description Allows a user to manage their own articles.
+     * @description Grants owner-only access to articles within a user's private collection.
      * @path /users/{userId}/articles/{articleId}
-     * @allow (create, get, list, update, delete) if request.auth.uid == userId
-     * @deny (create, get, list, update, delete) if request.auth.uid != userId
-     * @principle Restricts access to a user's own data tree.
+     * @allow get, list: if isOwner(userId);
+     * @allow create: if isOwner(userId) && request.resource.data.authorId == request.auth.uid;
+     * @allow update: if isExistingOwner(userId) && request.resource.data.authorId == request.auth.uid;
+     * @allow delete: if isExistingOwner(userId) && request.resource.data.authorId == request.auth.uid;
+     * @deny create: if !isOwner(userId) || request.resource.data.authorId != request.auth.uid;
+     * @deny update: if !isExistingOwner(userId) || request.resource.data.authorId != request.auth.uid;
+     * @deny delete: if !isExistingOwner(userId) || request.resource.data.authorId != request.auth.uid;
+     * @principle Enforces strict user-ownership for private articles.
      */
     match /users/{userId}/articles/{articleId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.authorId == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.authorId == request.auth.uid;
+      allow delete: if isExistingOwner(userId) && request.resource.data.authorId == request.auth.uid;
     }
 
     /**
-     * @description Allows read access to author information. Write access is denied.
+     * @description Grants public read access to author profiles.
      * @path /authors/{authorId}
      * @allow get, list: if true;
-     * @deny create, update, delete: if true;
-     * @principle Public read-only access to author profiles.
+     * @allow create: if false;
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @deny create: if true;
+     * @deny update: if true;
+     * @deny delete: if true;
+     * @principle Public read-only access for author profiles.
      */
     match /authors/{authorId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Allows read access to category information. Write access is denied.
+     * @description Grants public read access to categories.
      * @path /categories/{categoryId}
      * @allow get, list: if true;
-     * @deny create, update, delete: if true;
-     * @principle Public read-only access to categories.
+     * @allow create: if false;
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @deny create: if true;
+     * @deny update: if true;
+     * @deny delete: if true;
+     * @principle Public read-only access for categories.
      */
     match /categories/{categoryId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Allows public read access to comments. Write access is denied.
+     * @description Grants public read access to comments. Write operations are denied.
      * @path /comments/{commentId}
      * @allow get, list: if true;
-     * @deny create, update, delete: if true;
-     * @principle Public read-only access to comments.
+     * @allow create: if false;
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @deny create: if true;
+     * @deny update: if true;
+     * @deny delete: if true;
+     * @principle Public read-only access for comments.
      */
     match /comments/{commentId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
+    }
+
+    /**
+     * @description Denies all access to the /subCategories collection.
+     * @path /subCategories
+     * @allow get, list: if false;
+     * @allow create: if false;
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @deny get: if true;
+     * @deny list: if true;
+     * @deny create: if true;
+     * @deny update: if true;
+     * @deny delete: if true;
+     * @principle Explicitly denies all access for security.
+     */
+    match /subCategories {
+        allow get, list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     // --- Helper Functions ---
@@ -121,20 +152,20 @@ service cloud.firestore {
 
     /**
      * @description Checks if the user is the owner of the document.
-     * @param {string} userId - The user ID to check against.
+     * @param {string} userId The user ID to compare against the request's auth UID.
      * @return {boolean} True if the user is the owner, false otherwise.
      */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is the owner of the existing document.
-     * @param {string} userId - The user ID to check against.
+     * @description Checks if the user is the owner of the document and the document exists.
+     * @param {string} userId The user ID to compare against the request's auth UID.
      * @return {boolean} True if the user is the owner and the document exists, false otherwise.
      */
     function isExistingOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId && resource != null;
+      return isOwner(userId) && resource != null;
     }
   }
 }
