@@ -13,13 +13,17 @@ import { useData } from "../providers/data-provider"
 
 export default function MainSidebar() {
     const pathname = usePathname();
-    const { categories } = useData();
+    const { categories, articles } = useData();
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
         { href: "/tutorials", label: "Tutorials", icon: BookOpen },
         { href: "/blog", label: "Blog", icon: Newspaper },
     ];
+
+    const getArticlesForSubCategory = (categorySlug: string, subCategorySlug: string) => {
+        return articles.filter(a => a.category === categorySlug && a.subCategory === subCategorySlug);
+    }
 
     return (
         <Sidebar>
@@ -52,24 +56,39 @@ export default function MainSidebar() {
                     ))}
                 </SidebarMenu>
 
-                <Accordion type="multiple" defaultValue={['tutorials']} className="w-full mt-4">
-                    {Object.entries(categories).map(([key, value]) => (
-                        <AccordionItem value={key} key={key}>
+                <Accordion type="multiple" defaultValue={['tutorials', 'blog']} className="w-full mt-4">
+                    {Object.entries(categories).map(([categoryKey, categoryValue]) => (
+                        <AccordionItem value={categoryKey} key={categoryKey}>
                             <AccordionTrigger className="text-sm font-medium text-muted-foreground hover:no-underline hover:text-foreground p-2 rounded-md hover:bg-accent/50">
-                                {value.name}
+                                {categoryValue.name}
                             </AccordionTrigger>
                             <AccordionContent>
-                                <SidebarMenuSub>
-                                    {value.subCategories.map(sub => (
-                                        <SidebarMenuSubItem key={`${key}-${sub.slug}`}>
-                                             <SidebarMenuSubButton asChild isActive={pathname.endsWith(sub.slug)}>
-                                                <Link href={`/articles/${sub.slug}`}>
-                                                    {sub.name}
-                                                </Link>
-                                            </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                    ))}
-                                </SidebarMenuSub>
+                                {categoryValue.subCategories.length > 0 && (
+                                    <SidebarMenuSub>
+                                        {categoryValue.subCategories.map(sub => (
+                                            <Accordion type="single" collapsible key={`${categoryKey}-${sub.slug}`}>
+                                                <AccordionItem value={sub.slug}>
+                                                     <AccordionTrigger className="text-xs font-medium text-muted-foreground hover:no-underline hover:text-foreground p-2 rounded-md">
+                                                        {sub.name}
+                                                    </AccordionTrigger>
+                                                    <AccordionContent>
+                                                        <SidebarMenuSub>
+                                                            {getArticlesForSubCategory(categoryKey, sub.name).map(article => (
+                                                                <SidebarMenuSubItem key={article.slug}>
+                                                                    <SidebarMenuSubButton asChild isActive={pathname.endsWith(article.slug)}>
+                                                                        <Link href={`/articles/${article.slug}`}>
+                                                                            {article.title}
+                                                                        </Link>
+                                                                    </SidebarMenuSubButton>
+                                                                </SidebarMenuSubItem>
+                                                            ))}
+                                                        </SidebarMenuSub>
+                                                    </AccordionContent>
+                                                </AccordionItem>
+                                            </Accordion>
+                                        ))}
+                                    </SidebarMenuSub>
+                                )}
                             </AccordionContent>
                         </AccordionItem>
                     ))}
