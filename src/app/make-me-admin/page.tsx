@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -29,14 +30,18 @@ export default function MakeAdminPage() {
     try {
       const result = await makeAdmin();
       if (result.success) {
+        // Force a refresh of the user's ID token to get the new custom claim.
+        await user.getIdToken(true);
+        
         toast({
           title: 'Success!',
-          description: 'You have been granted admin privileges. You will be redirected shortly. Please log out and log back in for the changes to take full effect.',
+          description: 'You have been granted admin privileges. You will be redirected shortly.',
         });
-        // Force a token refresh by signing out and redirecting
+
+        // Redirect after a short delay to allow the user to read the toast.
         setTimeout(() => {
-            router.push('/');
-        }, 3000);
+            router.push('/admin');
+        }, 2000);
       } else {
         throw new Error(result.message || 'An unknown error occurred.');
       }
