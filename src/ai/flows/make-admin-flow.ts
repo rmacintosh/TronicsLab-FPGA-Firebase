@@ -97,5 +97,5 @@ const makeAdminFlow = ai.defineFlow(
 );
 
 export async function makeAdmin(): Promise<MakeAdminOutput> {
-  return await makeAdminFlow();
+  return makeAdminFlow();
 }
