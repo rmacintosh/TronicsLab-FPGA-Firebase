@@ -85,7 +85,8 @@ const makeAdminFlow = ai.defineFlow(
         success: true,
         message: `Successfully granted admin privileges to user ${callingUid}.`,
       };
-    } catch (error: any) {
+    } catch (error: any)
+     {
       console.error(`Failed to set custom claims for UID ${callingUid}:`, error);
       return {
         success: false,
