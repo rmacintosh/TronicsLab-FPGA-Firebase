@@ -1,6 +1,6 @@
 
 import {genkit} from 'genkit';
-import {firebase} from '@genkit-ai/firebase';
+import { firebase } from '@genkit-ai/firebase/plugin';
 import {googleAI} from '@genkit-ai/google-genai';
 import { firebaseConfig } from '@/firebase/config';
 
