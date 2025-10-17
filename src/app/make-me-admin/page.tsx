@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,12 @@ export default function MakeAdminPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [isUserLoading, user, router]);
 
   const handleMakeAdmin = async () => {
     if (!user) {
@@ -56,17 +62,12 @@ export default function MakeAdminPage() {
     }
   };
 
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
       return (
           <div className="flex justify-center items-center h-screen">
               <Loader2 className="h-8 w-8 animate-spin" />
           </div>
       )
-  }
-
-  if (!user) {
-    router.push('/login');
-    return null;
   }
 
   return (
