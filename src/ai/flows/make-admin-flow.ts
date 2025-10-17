@@ -32,9 +32,13 @@ const makeAdminFlow = ai.defineFlow(
     name: 'makeAdminFlow',
     inputSchema: z.void(),
     outputSchema: MakeAdminOutputSchema,
-    auth: {
-      policy: 'client',
-      client: { required: true }
+    auth: (auth) => {
+        if (!auth) {
+            throw new Error('Authorization required.');
+        }
+        // This is a simplified check. In a real-world scenario, you might
+        // want to check for specific roles or permissions here if needed,
+        // but for the "first admin" logic, just being authenticated is enough.
     },
   },
   async (_, { auth }) => {
