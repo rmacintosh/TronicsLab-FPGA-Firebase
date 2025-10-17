@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { makeAdmin } from '@/ai/flows/make-admin-flow';
+import { makeAdmin } from '@/ai/actions';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';

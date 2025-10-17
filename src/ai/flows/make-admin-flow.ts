@@ -27,7 +27,7 @@ function initializeFirebaseAdmin(): App {
     return initializeApp();
 }
 
-const makeAdminFlow = ai.defineFlow(
+export const makeAdminFlow = ai.defineFlow(
   {
     name: 'makeAdminFlow',
     inputSchema: z.void(),
@@ -99,7 +99,3 @@ const makeAdminFlow = ai.defineFlow(
     }
   }
 );
-
-export async function makeAdmin(): Promise<MakeAdminOutput> {
-  return makeAdminFlow();
-}
