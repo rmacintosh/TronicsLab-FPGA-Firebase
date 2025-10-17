@@ -32,10 +32,9 @@ const makeAdminFlow = ai.defineFlow(
     name: 'makeAdminFlow',
     inputSchema: z.void(),
     outputSchema: MakeAdminOutputSchema,
-    auth: (auth) => {
-        if (!auth) {
-            throw new Error('Authentication is required to perform this action.');
-        }
+    auth: {
+      policy: 'client',
+      client: { required: true }
     },
   },
   async (_, { auth }) => {
