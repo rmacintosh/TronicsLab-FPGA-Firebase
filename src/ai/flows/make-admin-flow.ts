@@ -15,7 +15,7 @@ const MakeAdminOutputSchema = z.object({
   message: z.string(),
 });
 
-type MakeAdminOutput = z.infer<typeof MakeAdminOutputSchema>;
+export type MakeAdminOutput = z.infer<typeof MakeAdminOutputSchema>;
 
 // Ensure Firebase Admin is initialized only once.
 function initializeFirebaseAdmin(): App {
