@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { makeAdmin } from '@/ai/actions';
+import { makeAdminAction } from '@/ai/actions';
 import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -34,7 +34,7 @@ export default function MakeAdminPage() {
 
     setIsLoading(true);
     try {
-      const result = await makeAdmin();
+      const result = await makeAdminAction();
       if (result.success) {
         // Force a refresh of the user's ID token to get the new custom claim.
         await user.getIdToken(true);

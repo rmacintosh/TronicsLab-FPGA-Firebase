@@ -9,6 +9,7 @@ import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { ai } from '../genkit';
+import { firebaseConfig } from '@/firebase/config';
 
 const MakeAdminOutputSchema = z.object({
   success: z.boolean(),
@@ -23,11 +24,14 @@ function initializeFirebaseAdmin(): App {
       return getApps()[0]!;
     }
     // This will use the GOOGLE_APPLICATION_CREDENTIALS environment variable
-    // or other default credentials on Google Cloud infrastructure.
-    return initializeApp();
+    // or other default credentials on Google Cloud infrastructure. When running
+    // locally, it needs explicit configuration.
+    return initializeApp({
+        projectId: firebaseConfig.projectId,
+    });
 }
 
-export const makeAdminFlow = ai.defineFlow(
+const makeAdminFlow = ai.defineFlow(
   {
     name: 'makeAdminFlow',
     inputSchema: z.void(),
@@ -99,3 +103,8 @@ export const makeAdminFlow = ai.defineFlow(
     }
   }
 );
+
+
+export async function makeAdmin(): Promise<MakeAdminOutput> {
+  return makeAdminFlow();
+}

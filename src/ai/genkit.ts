@@ -2,11 +2,14 @@
 import {genkit} from 'genkit';
 import {firebase} from '@genkit-ai/firebase';
 import {googleAI} from '@genkit-ai/google-genai';
+import { firebaseConfig } from '@/firebase/config';
 
 export const ai = genkit({
   plugins: [
     googleAI(),
-    firebase(),
+    firebase({
+      projectId: firebaseConfig.projectId,
+    }),
   ],
   model: 'googleai/gemini-2.5-flash',
   enableDotEnv: true,
