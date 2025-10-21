@@ -1,4 +1,5 @@
 
+// Force re-commit
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -15,7 +16,8 @@ import { useUser } from "@/firebase";
 import slugify from "slugify";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { createArticleAction, NewArticleData } from "@/app/actions";
+import { createArticleAction } from "@/app/actions";
+import { NewArticleData } from "@/lib/types"; // Corrected import path
 import { Category } from "@/lib/server-types";
 import { useMemo } from "react";
 
