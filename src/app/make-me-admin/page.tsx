@@ -22,45 +22,50 @@ export default function MakeAdminPage() {
     }
   }, [isUserLoading, user, router]);
 
-  const handleMakeAdmin = async () => {
-    if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'You must be logged in to perform this action.',
-      });
-      return;
-    }
+const handleMakeAdmin = async () => {
+  if (!user) {
+    toast({
+      variant: 'destructive',
+      title: 'Error',
+      description: 'You must be logged in to perform this action.',
+    });
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      const result = await makeAdminAction();
-      if (result.success) {
-        // Force a refresh of the user's ID token to get the new custom claim.
-        await user.getIdToken(true);
-        
-        toast({
-          title: 'Success!',
-          description: 'You have been granted admin privileges. You will be redirected shortly.',
-        });
+  setIsLoading(true);
+  try {
+    // Get the user's ID token
+    const authToken = await user.getIdToken();
 
-        // Redirect after a short delay to allow the user to read the toast.
-        setTimeout(() => {
-            router.push('/admin');
-        }, 2000);
-      } else {
-        throw new Error(result.message || 'An unknown error occurred.');
-      }
-    } catch (error: any) {
+    // Pass the auth token to the server action
+    const result = await makeAdminAction(authToken); // Modify to pass token
+
+    if (result.success) {
+      // Force a refresh of the user's ID token to get the new custom claim.
+      await user.getIdToken(true);
+
       toast({
-        variant: 'destructive',
-        title: 'Operation Failed',
-        description: error.message || 'Could not grant admin privileges.',
+        title: 'Success!',
+        description: 'You have been granted admin privileges. You will be redirected shortly.',
       });
-    } finally {
-      setIsLoading(false);
+
+      // Redirect after a short delay
+      setTimeout(() => {
+          router.push('/admin');
+      }, 2000);
+    } else {
+      throw new Error(result.message || 'An unknown error occurred.');
     }
-  };
+  } catch (error: any) {
+    toast({
+      variant: 'destructive',
+      title: 'Operation Failed',
+      description: error.message || 'Could not grant admin privileges.',
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   if (isUserLoading || !user) {
       return (

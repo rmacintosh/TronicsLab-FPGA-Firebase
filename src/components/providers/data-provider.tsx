@@ -1,183 +1,109 @@
 
 "use client";
 
-import React, { createContext, useContext, ReactNode } from 'react';
-import { useCollection, useFirebase, addDocumentNonBlocking, WithId, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, setDoc, writeBatch, getDocs, query, limit } from 'firebase/firestore';
-import type { Article, Category, Comment } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import React, { createContext, useContext, useMemo } from 'react';
+import { collection, doc, DocumentData, QueryDocumentSnapshot, setDoc, SnapshotOptions } from "firebase/firestore";
+import { useCollection, useDocument } from 'react-firebase-hooks/firestore';
+import { useFirebase } from '@/firebase/provider';
+import { getAuth } from 'firebase/auth';
+import { seedDatabaseAction } from '@/app/actions';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Article, Category, Comment, User } from '@/lib/server-types';
+import { NewArticleData } from '@/lib/types';
 
-interface DataContextProps {
-  articles: WithId<Article>[];
-  categories: WithId<Category>[];
-  comments: WithId<Comment>[];
-  addArticle: (article: Omit<Article, 'id'>) => Promise<any>;
-  addCategory: (category: Omit<Category, 'id'>) => Promise<any>;
-  seedDatabase: () => Promise<void>;
-  isLoading: boolean;
-  isAdmin: boolean;
-  isRoleLoading: boolean;
+const converter = <T,>() => ({
+    toFirestore: (data: T) => data as DocumentData,
+    fromFirestore: (snapshot: QueryDocumentSnapshot, options: SnapshotOptions) => {
+        const data = snapshot.data(options)!;
+        return { ...data, id: snapshot.id } as T;
+    }
+});
+
+interface DataContextType {
+    user: User | null;
+    articles: Article[];
+    categories: Category[];
+    comments: Comment[];
+    isLoading: boolean;
+    isAdmin: boolean;
+    seedDatabase: () => Promise<void>;
+    addArticle: (article: NewArticleData) => Promise<any>;
+    addCategory: (category: Omit<Category, 'id'>) => Promise<any>;
 }
 
-const DataContext = createContext<DataContextProps | undefined>(undefined);
+const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const initialCategories: Omit<Category, 'id'>[] = [
-    { name: 'Tutorials', slug: 'tutorials' },
-    { name: 'Blog', slug: 'blog' },
-];
+export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { firestore, user, claims } = useFirebase();
+    const isAdmin = useMemo(() => !!claims?.claims.admin, [claims]);
 
-const initialArticles: Omit<Article, 'id'>[] = [
-  {
-    slug: 'fpga-basics-a-beginners-guide',
-    title: "FPGA Basics: A Beginner's Guide",
-    description: "Learn the fundamentals of FPGAs, from what they are to how they work. This guide covers the essential concepts to get you started on your first project.",
-    category: 'tutorials',
-    author: 'Admin',
-    date: '2024-01-15T10:00:00.000Z',
-    views: 1250,
-    image: PlaceHolderImages.find(img => img.id === 'fpga-basics')!,
-    content: `<p>This is a detailed article about the basics of FPGAs...</p>`,
-  },
-  {
-    slug: 'your-first-verilog-project-hello-world',
-    title: "Your First Verilog Project: Hello, World!",
-    description: "A step-by-step tutorial on creating a simple 'Hello, World!' project in Verilog. Perfect for those new to hardware description languages.",
-    category: 'tutorials',
-    author: 'Admin',
-    date: '2024-02-02T14:30:00.000Z',
-    views: 980,
-    image: PlaceHolderImages.find(img => img.id === 'verilog-hello-world')!,
-    content: `<p>This is a detailed article about creating a 'Hello, World!' project in Verilog...</p>`,
-  },
-  {
-    slug: 'building-an-led-blinker-with-an-fpga',
-    title: "Building an LED Blinker with an FPGA",
-    description: "Follow along as we create a classic LED blinker project. This hands-on tutorial will solidify your understanding of basic FPGA development.",
-    category: 'tutorials',
-    author: 'Admin',
-    date: '2024-02-20T11:00:00.000Z',
-    views: 1800,
-    image: PlaceHolderImages.find(img => img.id === 'led-blinker-project')!,
-    content: `<p>This is a detailed article about building an LED blinker...</p>`,
-  },
-  {
-    slug: 'advanced-fsm-design-for-complex-protocols',
-    title: "Advanced FSM Design for Complex Protocols",
-    description: "Dive deep into finite state machine design. This article explores techniques for handling complex communication protocols and improving FSM robustness.",
-    category: 'tutorials',
-    author: 'Admin',
-    date: '2024-03-10T09:00:00.000Z',
-    views: 2100,
-    image: PlaceHolderImages.find(img => img.id === 'advanced-fsm')!,
-    content: `<p>This is a detailed article about advanced FSM design...</p>`,
-  },
-  {
-    slug: 'optimizing-your-verilog-for-better-performance',
-    title: "Optimizing Your Verilog for Better Performance",
-    description: "Learn tips and tricks for writing more efficient Verilog code. This article covers synthesis-friendly coding styles and performance optimization strategies.",
-    category: 'blog',
-    author: 'Admin',
-    date: '2024-04-05T16:00:00.000Z',
-    views: 3200,
-    image: PlaceHolderImages.find(img => img.id === 'optimizing-verilog')!,
-    content: `<p>This is a detailed article about optimizing Verilog...</p>`,
-  },
-  {
-    slug: 'the-rise-of-soc-fpgas-a-new-era-of-computing',
-    title: "The Rise of SoC FPGAs: A New Era of Computing",
-    description: "System-on-Chip (SoC) FPGAs are changing the game. Discover what they are, their advantages, and how they are powering the next generation of embedded systems.",
-    category: 'blog',
-    author: 'Admin',
-    date: '2024-05-01T18:00:00.000Z',
-    views: 4500,
-    image: PlaceHolderImages.find(img => img.id === 'soc-design')!,
-    content: `<p>This is a detailed article about SoC FPGAs...</p>`,
-  },
-];
+    const articlesCollection = useMemo(() => firestore ? collection(firestore, 'articles').withConverter<Article>(converter<Article>()) : null, [firestore]);
+    const [articlesSnapshot, articlesLoading] = useCollection(articlesCollection);
+    const articles = useMemo(() => articlesSnapshot?.docs.map(doc => doc.data()) || [], [articlesSnapshot]);
 
+    const categoriesCollection = useMemo(() => firestore ? collection(firestore, 'categories').withConverter<Category>(converter<Category>()) : null, [firestore]);
+    const [categoriesSnapshot, categoriesLoading] = useCollection(categoriesCollection);
+    const categories = useMemo(() => categoriesSnapshot?.docs.map(doc => doc.data()) || [], [categoriesSnapshot]);
 
-export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const { firestore } = useFirebase();
-  const { user, claims, isUserLoading } = useUser();
+    const userRef = useMemo(() => user ? doc(firestore!, 'users', user.uid).withConverter<User>(converter<User>()) : null, [firestore, user]);
+    const [userSnapshot, userLoading] = useDocument(userRef);
+    const userProfile = useMemo(() => userSnapshot?.data() || null, [userSnapshot]);
 
-  const isAdmin = claims?.claims.admin === true;
-  const isRoleLoading = isUserLoading;
-
-  const articlesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'articles') : null), [firestore]);
-  const { data: articles, isLoading: articlesLoading } = useCollection<Article>(articlesCollection);
-
-  const categoriesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'categories') : null), [firestore]);
-  const { data: categories, isLoading: categoriesLoading } = useCollection<Category>(categoriesCollection);
-
-  const commentsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'comments') : null), [firestore]);
-  const { data: comments, isLoading: commentsLoading } = useCollection<Comment>(commentsCollection);
-  
-  const addArticle = (article: Omit<Article, 'id'>) => {
-    if (!articlesCollection) {
-        return Promise.reject("Firestore not initialized");
-    }
-    return addDocumentNonBlocking(articlesCollection, article);
-  };
-
-  const addCategory = (category: Omit<Category, 'id'>) => {
-    if (!firestore) {
-        return Promise.reject("Firestore not initialized");
-    }
-    const categoryRef = doc(firestore, 'categories', category.slug);
-    return setDoc(categoryRef, category);
-  };
-
-  const seedDatabase = async () => {
-    if (!firestore) {
-      throw new Error("Firestore not initialized");
-    }
-    const articlesQuery = query(collection(firestore, 'articles'), limit(1));
-    const articlesSnapshot = await getDocs(articlesQuery);
-
-    if (!articlesSnapshot.empty) {
-        throw new Error("Database has already been seeded.");
-    }
+    const commentsCollection = useMemo(() => firestore ? collection(firestore, 'comments').withConverter<Comment>(converter<Comment>()) : null, [firestore]);
+    const [commentsSnapshot, commentsLoading] = useCollection(commentsCollection);
+    const comments = useMemo(() => commentsSnapshot?.docs.map(doc => doc.data()) || [], [commentsSnapshot]);
     
-    const batch = writeBatch(firestore);
-
-    initialCategories.forEach(category => {
-        const categoryRef = doc(firestore, 'categories', category.slug);
-        batch.set(categoryRef, category);
-    });
-
-    initialArticles.forEach(article => {
-        const articleRef = doc(firestore, 'articles', article.slug);
-        batch.set(articleRef, article);
-    });
-
-    await batch.commit();
-  };
+    const addArticle = (article: NewArticleData) => {
+      if (!articlesCollection) {
+          return Promise.reject("Firestore not initialized");
+      }
+      return addDocumentNonBlocking(articlesCollection, article as Article);
+    };
   
-  const isLoading = articlesLoading || categoriesLoading || commentsLoading || isRoleLoading;
+    const addCategory = (category: Omit<Category, 'id'>) => {
+      if (!firestore) {
+          return Promise.reject("Firestore not initialized");
+      }
+      const categoryRef = doc(firestore, 'categories', category.slug);
+      return setDoc(categoryRef, category);
+    };
 
-  const value = {
-    articles: articles || [],
-    categories: categories || [],
-    comments: comments || [],
-    addArticle,
-    addCategory,
-    seedDatabase,
-    isLoading,
-    isAdmin,
-    isRoleLoading
-  };
+    const seedDatabase = async () => {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("You must be logged in to seed the database.");
+      }
+      const token = await currentUser.getIdToken();
+      const result = await seedDatabaseAction(token);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+    };
 
-  return (
-    <DataContext.Provider value={value}>
-      {children}
-    </DataContext.Provider>
-  );
+    const value: DataContextType = {
+        user: userProfile,
+        articles,
+        categories,
+        comments,
+        isLoading: articlesLoading || categoriesLoading || userLoading || commentsLoading,
+        isAdmin,
+        seedDatabase,
+        addArticle,
+        addCategory,
+    };
+
+    return (
+        <DataContext.Provider value={value}>
+            {children}
+        </DataContext.Provider>
+    );
 };
 
 export const useData = () => {
-  const context = useContext(DataContext);
-  if (context === undefined) {
-    throw new Error('useData must be used within a DataProvider');
-  }
-  return context;
+    const context = useContext(DataContext);
+    if (context === undefined) {
+        throw new Error('useData must be used within a DataProvider');
+    }
+    return context;
 };

@@ -8,8 +8,12 @@ import Link from "next/link";
 import { useData } from "@/components/providers/data-provider";
 
 export default function Home() {
-  const { articles } = useData();
+  const { articles, isLoading } = useData();
   const featuredArticles = articles.slice(0, 3);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-8">

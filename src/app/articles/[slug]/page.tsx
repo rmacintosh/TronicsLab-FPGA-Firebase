@@ -13,10 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useData } from "@/components/providers/data-provider";
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { useUser, addDocumentNonBlocking, useFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { getHighlightedHtml } from "@/app/actions";
 
 export default function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -26,11 +27,18 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [commentText, setCommentText] = useState("");
+  const [highlightedContent, setHighlightedContent] = useState(article?.content || "");
+
+  useEffect(() => {
+    if (article?.content) {
+      getHighlightedHtml(article.content).then(setHighlightedContent);
+    }
+  }, [article?.content]);
 
   if (!article) {
     notFound();
   }
-  
+
   const category = categories.find(c => c.slug === article.category);
   const articleComments = comments.filter(c => c.articleSlug === article.slug);
   const author = {
@@ -100,7 +108,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
                 <span>{articleComments.length} comments</span>
             </div>
           </div>
-        </header>
+          </header>
 
         <Image
           src={article.image.imageUrl}
@@ -112,7 +120,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
           priority
         />
 
-        <div className="prose prose-lg dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
+        <div className="prose prose-lg dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: highlightedContent }} />
         
         <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 p-8 text-center">
             <div className="space-y-4">
@@ -126,7 +134,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
                 </Button>
             </div>
         </div>
-      </article>
+        </article>
 
       <section className="mt-16 border-t pt-12">
         <h2 className="font-headline text-3xl font-semibold mb-8">Comments ({articleComments.length})</h2>
@@ -155,7 +163,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
                 {!user ? (
                      <div className="text-center text-muted-foreground">
                         <Link href="/login" className="underline text-primary">Login</Link> or <Link href="/signup" className="underline text-primary">Sign up</Link> to leave a comment.
-                    </div>
+      </div>
                 ) : (
                 <>
                     <div className="space-y-2">

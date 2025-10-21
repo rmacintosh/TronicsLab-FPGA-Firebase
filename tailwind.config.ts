@@ -102,6 +102,8 @@ export default {
             h4: { fontFamily: theme('fontFamily.headline') },
             h5: { fontFamily: theme('fontFamily.headline') },
             h6: { fontFamily: theme('fontFamily.headline') },
+            p: { fontFamily: theme('fontFamily.body') },
+            pre: false,
           },
         },
       }),

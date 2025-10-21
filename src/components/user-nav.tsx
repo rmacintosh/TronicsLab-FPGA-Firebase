@@ -17,16 +17,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth, useUser } from "@/firebase"
-import { MessageSquare, Settings, LogOut } from "lucide-react"
+import { MessageSquare, Settings, LogOut, LogIn } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "firebase/auth"
 import { useData } from "./providers/data-provider"
+import { useSidebar } from "./ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 
 export function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const { isAdmin } = useData();
+  const { state } = useSidebar();
 
   const handleLogout = () => {
     signOut(auth);
@@ -44,9 +47,28 @@ export function UserNav() {
 
 
   if (!user) {
+    if (state === "collapsed") {
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button asChild variant="ghost" size="icon">
+                        <Link href="/login">
+                            <LogIn />
+                        </Link>
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Login</p>
+                </TooltipContent>
+            </Tooltip>
+        )
+    }
+
     return (
       <Button asChild>
-        <Link href="/login">Login</Link>
+        <Link href="/login">
+            Login
+        </Link>
       </Button>
     )
   }
