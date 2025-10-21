@@ -130,7 +130,7 @@ export default function MainSidebar() {
                         {articlesToDisplay.map(article => (
                             <SidebarMenuItem key={article.id}>
                                 <Link href={`/articles/${article.slug}`} className="w-full">
-                                    <SidebarMenuButton isActive={pathname.endsWith(article.slug)} variant="ghost" className="h-auto py-1.5">
+                                    <SidebarMenuButton isActive={pathname.endsWith(article.slug)} className="h-auto py-1.5">
                                        <span className="truncate whitespace-normal leading-normal">{article.title}</span>
                                     </SidebarMenuButton>
                                 </Link>

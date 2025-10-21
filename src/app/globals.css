@@ -77,14 +77,10 @@
     --sidebar-border: 217 10% 26%;
     --sidebar-ring: 196 70% 40%;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
-  }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
   
   ::-webkit-scrollbar {

@@ -12,18 +12,18 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAdmin, isRoleLoading } = useData();
+  const { isAdmin, isLoading } = useData();
 
   useEffect(() => {
     // If the role check is complete and the user is not an admin, redirect them.
-    if (!isRoleLoading && !isAdmin) {
+    if (!isLoading && !isAdmin) {
       router.replace('/');
     }
-  }, [isRoleLoading, isAdmin, router]);
+  }, [isLoading, isAdmin, router]);
 
   // While we are checking for the role, or if the user is not an admin
   // (and the redirect is in progress), show a loading skeleton.
-  if (isRoleLoading || !isAdmin) {
+  if (isLoading || !isAdmin) {
     return (
       <div className="space-y-8">
         <div className="flex justify-between items-center">
@@ -42,5 +42,3 @@ export default function AdminLayout({
   // If loading is complete and the user is an admin, render the children.
   return <>{children}</>;
 }
-
-    

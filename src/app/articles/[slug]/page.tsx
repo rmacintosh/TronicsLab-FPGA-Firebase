@@ -39,7 +39,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
     notFound();
   }
 
-  const category = categories.find(c => c.slug === article.category);
+  const category = categories.find(c => c.id === article.categoryId);
   const articleComments = comments.filter(c => c.articleSlug === article.slug);
   const author = {
       name: article.author,
