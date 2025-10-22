@@ -7,14 +7,18 @@ export default function myImageLoader({ src, width, quality }) {
     return src;
   }
 
+  // The image processor service needs a full, absolute URL to fetch the source image.
+  // We construct this using the NEXT_PUBLIC_SITE_URL environment variable.
+  const absoluteSrc = `${process.env.NEXT_PUBLIC_SITE_URL}${src}`;
+ 
   // Otherwise, we build a URL for the Firebase App Hosting image processing service.
   // This service can resize and convert images to modern formats like WebP.
   const operations = [
     {
       operation: "input",
       type: "url",
-      // The 'src' is the original path to your image, e.g., /placeholder-images/fpga-basics.png
-      url: src,
+      // Provide the absolute URL to the source image.
+      url: absoluteSrc,
     },
     { operation: "resize", width: width },
     { operation: "output", format: "webp", quality: quality || 75 },

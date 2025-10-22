@@ -27,6 +27,8 @@ These tasks build upon the new core architecture to improve user functionality.
 | :--- | :--- | :--- |
 | **Hierarchical Category Management** | `TO DO` | Create a new admin interface to manage the content hierarchy. This should include functionality to Create, Read, Update, and Delete categories. Implement logic to handle orphaned articles and subcategories upon deletion of a parent category. |
 | **Update Article Creation Form** | `TO DO` | Modify the article creation/editing form to use a hierarchical selector for choosing a category, reflecting the new data model. The old category selection method is now obsolete. |
+| **Rich Commenting System** | `TO DO` | Allow users to embed syntax-highlighted code snippets within their comments. |
+| **Feature-Rich Article Editor** | `TO DO` | Enhance the article creation form to support easy embedding of code, links, images, GitHub gists, file attachments, and videos. |
 | **Site-Wide Search** | `TO DO` | Add a search bar to the main navigation to allow users to find articles across all categories. |
 | **Enhanced Article Creation** | `TO DO` | Improve the article creation form. It's currently too basic and needs more advanced features for formatting and media embedding. |
 | **Article Commenting Notifications** | `TO DO` | Implement an email or in-app notification system to alert users when someone replies to their comment. |
