@@ -1,5 +1,4 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { firebaseConfig } from './config'; // Assuming config.ts is in the same directory
 import admin from 'firebase-admin';
 
 // Fetch the service account key JSON file
@@ -31,13 +30,10 @@ if (!getApps().length) {
   // Example for development with a local service account key file:
   // initializeApp({
   //   credential: cert(serviceAccount),
-  //   projectId: firebaseConfig.projectId,
   // });
 
   // Example for deployment where credentials are provided by the environment:
-   initializeApp({
-     projectId: firebaseConfig.projectId,
-   });
+   initializeApp();
 
 }
 
