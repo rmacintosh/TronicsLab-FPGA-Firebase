@@ -6,7 +6,7 @@
 
 import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
-import { getApps, App } from 'firebase-admin/app';
+import { getApps } from 'firebase-admin/app';
 import { ai } from '../genkit';
 import '@/firebase/admin'; // Ensure Firebase Admin is initialized
 
@@ -24,8 +24,9 @@ const makeAdminFlow = ai.defineFlow(
     inputSchema: z.void(),
     outputSchema: MakeAdminOutputSchema,
   },
-  async (_, context) => { // Correctly access the context
-    const auth = context?.auth as any; // Access auth from context
+  async (_, sideChannel) => {
+    // The auth object is nested inside the context passed from the server action.
+    const auth = sideChannel.context?.auth as any;
 
     // The 'auth' object will be null or undefined if no valid token is provided.
     if (!auth || !auth.uid) {
