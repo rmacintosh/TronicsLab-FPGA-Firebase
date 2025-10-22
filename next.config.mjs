@@ -8,7 +8,7 @@ const nextConfig = {
     return [
       {
         source: '/_fah/image/process',
-        destination: process.env.APP_HOSTING_IMAGE_TRANSFORMATION_URL || 'https://apphosting.us-central1.run.app/backends/placeholder/image/process',
+        destination: 'https://apphosting.us-central1.run.app/backends/tronicslab-fpga-firebase/image/process',
       },
     ];
   },
