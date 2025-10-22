@@ -1,0 +1,6 @@
+# Settings to manage and configure a Firebase App Hosting backend.
+# https://firebase.google.com/docs/app-hosting/configure
+
+env:
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://tronicslab-fpga-firebase--studio-2360460009-16468.us-central1.hosted.app
