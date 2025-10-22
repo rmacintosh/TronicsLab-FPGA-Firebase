@@ -6,9 +6,8 @@
 
 import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { getApps, App } from 'firebase-admin/app';
 import { ai } from '../genkit';
-import { firebaseConfig } from '@/firebase/config';
 import '@/firebase/admin'; // Ensure Firebase Admin is initialized
 
 const MakeAdminOutputSchema = z.object({
@@ -18,27 +17,15 @@ const MakeAdminOutputSchema = z.object({
 
 export type MakeAdminOutput = z.infer<typeof MakeAdminOutputSchema>;
 
-// Ensure Firebase Admin is initialized only once.
-function initializeFirebaseAdmin(): App {
-    if (getApps().length) {
-      return getApps()[0]!;
-    }
-    return initializeApp({
-        projectId: firebaseConfig.projectId,
-    });
-}
-
 // Define the flow with its logic.
 const makeAdminFlow = ai.defineFlow(
   {
     name: 'makeAdminFlow',
     inputSchema: z.void(),
     outputSchema: MakeAdminOutputSchema,
-    // Removed auth: { firebase: true } as it's not a valid property in FlowConfig
   },
-  async (_, sideChannel) => { // Changed to access sideChannel directly
-    // Attempt to access authentication context through sideChannel.context
-    const auth = sideChannel.context?.auth as any; // Use optional chaining and type assertion
+  async (_, context) => { // Correctly access the context
+    const auth = context?.auth as any; // Access auth from context
 
     // The 'auth' object will be null or undefined if no valid token is provided.
     if (!auth || !auth.uid) {
@@ -49,13 +36,18 @@ const makeAdminFlow = ai.defineFlow(
     }
 
     const callingUid = auth.uid;
-    // Use the already initialized admin app
-    const adminApp = getApps()[0] || initializeFirebaseAdmin(); // Get the initialized app
+
+    // Get the initialized admin app. The import '@/firebase/admin' should have handled initialization.
+    const adminApp = getApps()[0];
+    if (!adminApp) {
+        return {
+            success: false,
+            message: 'Firebase Admin SDK not initialized on the server.',
+        };
+    }
     const adminAuth = getAuth(adminApp);
 
-    // Security Check 1: Ensure the caller is authenticated is handled by the check above.
-
-    // Security Check 2: Check if any admin users already exist.
+    // Security Check: Check if any admin users already exist.
     try {
       const listUsersResult = await adminAuth.listUsers(1000);
       const adminExists = listUsersResult.users.some(user => !!user.customClaims?.admin);
