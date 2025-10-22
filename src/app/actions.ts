@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
@@ -115,6 +114,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
     const initialCategories: Category[] = [cat_fpgaDev, subcat_verilog, subcat_vhdl, subcat2_fsm];
 
     // 2. Define Articles and link them using categoryId
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
     const initialArticles: Omit<Article, 'id'>[] = [
       {
         slug: 'fpga-basics-a-beginners-guide',
@@ -124,7 +124,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
         author: 'Admin',
         date: '2024-01-15T10:00:00.000Z',
         views: 1250,
-        image: { id: 'fpga-basics', imageUrl: '/placeholder-images/fpga-basics.png', imageHint: 'A close-up of a complex FPGA chip with glowing circuits.' },
+        image: { id: 'fpga-basics', imageUrl: `${siteUrl}/placeholder-images/fpga-basics.png`, imageHint: 'A close-up of a complex FPGA chip with glowing circuits.' },
         content: '<p>Field-Programmable Gate Arrays (FPGAs) are a fascinating type of integrated circuit that can be configured by a designer after manufacturing...</p>',
       },
       {
@@ -135,7 +135,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
         author: 'Admin',
         date: '2024-02-02T14:30:00.000Z',
         views: 980,
-        image: { id: 'verilog-hello-world', imageUrl: '/placeholder-images/verilog-hello-world.png', imageHint: 'A computer screen showing simple Verilog code.' },
+        image: { id: 'verilog-hello-world', imageUrl: `${siteUrl}/placeholder-images/verilog-hello-world.png`, imageHint: 'A computer screen showing simple Verilog code.' },
         content: '<p>Let\'s get started with your first Verilog project. We\'ll create a simple module that outputs a constant value...</p>',
       },
       {
@@ -146,7 +146,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
         author: 'Admin',
         date: '2024-03-10T09:00:00.000Z',
         views: 2100,
-        image: { id: 'advanced-fsm', imageUrl: '/placeholder-images/advanced-fsm.png', imageHint: 'An abstract diagram of a complex finite state machine.' },
+        image: { id: 'advanced-fsm', imageUrl: `${siteUrl}/placeholder-images/advanced-fsm.png`, imageHint: 'An abstract diagram of a complex finite state machine.' },
         content: '<p>Finite State Machines (FSMs) are a cornerstone of digital design. In this article, we\'ll explore how to use them to implement a simple UART transmitter.</p>',
       },
     ];
