@@ -62,3 +62,4 @@ These items are technical in nature and need to be addressed before a full produ
 | Task | Status | Notes |
 | :--- | :--- | :--- |
 | **Fix 404 on Refresh** | `ON HOLD` | **Problem:** Refreshing on dynamic article pages (e.g., `/articles/some-slug`) causes a 404 error. **Cause:** The app is a server-rendered Next.js app, but the `firebase.json` is configured for a static site. **Solution:** Upgrade the project to the Blaze plan and deploy using **Firebase App Hosting**. This is postponed until the app is ready for a production launch. |
+| **Refactor Image URL Handling** | `TO DO` | **Problem:** The site's public URL is hardcoded in `.env.local` to make image optimization work. **Cause:** The image optimizer needs an absolute URL. **Solution:** Move the `NEXT_PUBLIC_SITE_URL` environment variable from the committed `.env.local` file to the App Hosting backend configuration in the Firebase console for better long-term maintenance. |
