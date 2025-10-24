@@ -30,7 +30,7 @@ import slugify from "slugify";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Category, Article } from "@/lib/server-types";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, use } from "react";
 
 const articleSchema = z.object({
   title: z.string().min(10, "Title must be at least 10 characters"),
@@ -43,15 +43,16 @@ interface HierarchicalCategory extends Category {
   level: number;
 }
 
-export default function EditArticlePage({ params }: { params: { slug: string } }) {
+export default function EditArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
   const { articles, categories, refreshData, updateArticle } = useData();
   const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
   const article = useMemo(
-    () => articles.find((a) => a.slug === params.slug),
-    [articles, params.slug]
+    () => articles.find((a) => a.slug === slug),
+    [articles, slug]
   );
 
   const hierarchicalCategories = useMemo(() => {
@@ -127,7 +128,7 @@ export default function EditArticlePage({ params }: { params: { slug: string } }
         content: values.content,
         categoryId: values.categoryId,
         slug: slugify(values.title, { lower: true, strict: true }),
-        description: values.content.substring(0, 150) + (values.content.length > 150 ? '...' : ''),
+        description: values.content.substring(0, 150) + (values.content.length > 150 ? '...' : '...'),
       };
 
       const result = await updateArticle(article.id, updatedArticleData);
