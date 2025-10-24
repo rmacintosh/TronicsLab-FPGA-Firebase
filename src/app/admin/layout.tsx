@@ -1,6 +1,7 @@
 
 "use client";
 
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { useData } from "@/components/providers/data-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
@@ -39,6 +40,15 @@ export default function AdminLayout({
     );
   }
 
-  // If loading is complete and the user is an admin, render the children.
-  return <>{children}</>;
+  // If loading is complete and the user is an admin, render the children with a header.
+  return (
+    <div className="flex flex-col h-full">
+      <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-card px-4 sm:px-6">
+        <Breadcrumbs basePath="/admin" rootName="Admin" rootHref="/admin" />
+      </header>
+      <main className="p-4 sm:p-6 flex-1">
+        {children}
+      </main>
+    </div>
+  );
 }

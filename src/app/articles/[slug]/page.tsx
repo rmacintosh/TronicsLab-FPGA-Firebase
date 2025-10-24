@@ -11,7 +11,6 @@ import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { useData } from "@/components/providers/data-provider";
 import { use, useState, useEffect } from "react";
 import { useUser, addDocumentNonBlocking, useFirebase } from "@/firebase";
@@ -19,9 +18,12 @@ import { collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { getHighlightedHtml } from "@/app/actions";
 
+// A local placeholder image
+const PLACEHOLDER_IMAGE = "/placeholder-images/placeholder.png";
+
 export default function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const { articles, comments, categories } = useData();
+  const { articles, comments } = useData();
   const article = articles.find((a) => a.slug === slug);
   const { user } = useUser();
   const { firestore } = useFirebase();
@@ -39,11 +41,11 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
     notFound();
   }
 
-  const category = categories.find(c => c.id === article.categoryId);
   const articleComments = comments.filter(c => c.articleSlug === article.slug);
+  // Use a generic avatar for now, we can make this more robust later
   const author = {
-      name: article.author,
-      avatar: `https://picsum.photos/seed/${article.author}/100/100`
+      name: article.authorName,
+      avatar: `` // Using fallback
   }
 
   const handlePostComment = () => {
@@ -84,7 +86,7 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
     <div className="max-w-4xl mx-auto">
       <article className="space-y-8">
         <header className="space-y-4">
-          <Badge variant="outline" className="text-sm">{category?.name}</Badge>
+          <Badge variant="outline" className="text-sm">{article.categoryName}</Badge>
           <h1 className="font-headline text-4xl md:text-5xl font-bold tracking-tight">{article.title}</h1>
           <p className="text-lg text-muted-foreground">{article.description}</p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -111,12 +113,12 @@ export default function ArticlePage({ params }: { params: Promise<{ slug: string
           </header>
 
         <Image
-          src={article.image.imageUrl}
+          src={article.image?.imageUrl || PLACEHOLDER_IMAGE}
           alt={article.title}
           width={1200}
           height={600}
           className="aspect-video w-full rounded-lg object-cover border"
-          data-ai-hint={article.image.imageHint}
+          data-ai-hint={article.image?.imageHint}
           priority
         />
 

@@ -3,10 +3,12 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getApps } from 'firebase-admin/app';
 import { adminFirestore } from '@/firebase/admin';
-import { Article, Category } from '../lib/server-types';
+import { Article, Category, User } from '../lib/server-types';
 import { NewArticleData } from '../lib/types';
 import { JSDOM } from 'jsdom';
 import { bundledLanguages, createHighlighter, Highlighter } from 'shiki';
+import { revalidatePath } from 'next/cache';
+import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
 
 // Create a single highlighter instance promise that can be reused.
 const highlighterPromise: Promise<Highlighter> = createHighlighter({
@@ -14,9 +16,11 @@ const highlighterPromise: Promise<Highlighter> = createHighlighter({
   langs: Object.keys(bundledLanguages),
 });
 
-/**
- * A server action to get syntax-highlighted HTML.
- */
+interface CategorySettings {
+    maxDepth: number;
+}
+
+// A server action to get syntax-highlighted HTML.
 export async function getHighlightedHtml(html: string): Promise<string> {
   const dom = new JSDOM(html);
   const { document } = dom.window;
@@ -47,9 +51,7 @@ export async function getHighlightedHtml(html: string): Promise<string> {
   return document.body.innerHTML;
 }
 
-/**
- * A server action to seed the Firestore database with a new hierarchical structure.
- */
+// A server action to seed the Firestore database with a new hierarchical structure.
 export async function seedDatabaseAction(authToken: string): Promise<{ success: boolean; message: string }> {
   if (!authToken) {
     return {
@@ -72,13 +74,29 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
     const firestoreAdmin = adminFirestore;
     const batch = firestoreAdmin.batch();
 
-    // Clear existing articles and categories to ensure a fresh seed
-    const existingArticles = await firestoreAdmin.collection('articles').get();
-    existingArticles.forEach(doc => batch.delete(doc.ref));
-    const existingCategories = await firestoreAdmin.collection('categories').get();
-    existingCategories.forEach(doc => batch.delete(doc.ref));
+    // Clear existing data
+    const collectionsToDelete = ['articles', 'categories', 'users'];
+    for (const collectionName of collectionsToDelete) {
+        const snapshot = await firestoreAdmin.collection(collectionName).get();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+    }
 
-    // 1. Define Categories with Hierarchy
+    // 1. Define Author from the calling user
+    const userEmail = decodedToken.email || 'admin@example.com';
+    const userName = decodedToken.name || userEmail.split('@')[0];
+
+    const author: Omit<User, 'id'> = {
+        uid: decodedToken.uid,
+        name: userName,
+        email: userEmail,
+        avatar: decodedToken.picture || '/default-avatar.png',
+        isAdmin: true, // The user running this action is an admin
+    };
+
+    const authorRef = firestoreAdmin.collection('users').doc(decodedToken.uid);
+    batch.set(authorRef, author);
+
+    // 2. Define Categories with Hierarchy
     const cat_fpgaDev: Category = {
       id: 'fpga-development',
       name: 'FPGA Development',
@@ -113,15 +131,14 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
 
     const initialCategories: Category[] = [cat_fpgaDev, subcat_verilog, subcat_vhdl, subcat2_fsm];
 
-    // 2. Define Articles and link them using categoryId
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    // 3. Define Articles and link them using categoryId
     const initialArticles: Omit<Article, 'id'>[] = [
       {
         slug: 'fpga-basics-a-beginners-guide',
         title: "FPGA Basics: A Beginner's Guide",
         description: "Learn the fundamentals of FPGAs, their architecture, and how they differ from traditional processors.",
-        categoryId: cat_fpgaDev.id, // Linked to top-level category
-        author: 'Admin',
+        categoryId: cat_fpgaDev.id,
+        authorId: decodedToken.uid,
         date: '2024-01-15T10:00:00.000Z',
         views: 1250,
         image: { id: 'fpga-basics', imageUrl: '/placeholder-images/fpga-basics.png', imageHint: 'A close-up of a complex FPGA chip with glowing circuits.' },
@@ -131,8 +148,8 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
         slug: 'your-first-verilog-project-hello-world',
         title: "Your First Verilog Project: Hello, World!",
         description: "A step-by-step tutorial to create your first Verilog project, the classic \"Hello, World!\" of hardware.",
-        categoryId: subcat_verilog.id, // Linked to sub-category
-        author: 'Admin',
+        categoryId: subcat_verilog.id,
+        authorId: decodedToken.uid,
         date: '2024-02-02T14:30:00.000Z',
         views: 980,
         image: { id: 'verilog-hello-world', imageUrl: '/placeholder-images/verilog-hello-world.png', imageHint: 'A computer screen showing simple Verilog code.' },
@@ -142,8 +159,8 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
         slug: 'advanced-fsm-design-for-complex-protocols',
         title: "Advanced FSM Design for Complex Protocols",
         description: "Dive deep into finite state machine design for implementing complex communication protocols on an FPGA.",
-        categoryId: subcat2_fsm.id, // Linked to sub-category 2
-        author: 'Admin',
+        categoryId: subcat2_fsm.id,
+        authorId: decodedToken.uid,
         date: '2024-03-10T09:00:00.000Z',
         views: 2100,
         image: { id: 'advanced-fsm', imageUrl: '/placeholder-images/advanced-fsm.png', imageHint: 'An abstract diagram of a complex finite state machine.' },
@@ -151,14 +168,13 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
       },
     ];
 
-    // 3. Batch write to Firestore
+    // 4. Batch write to Firestore
     initialCategories.forEach(category => {
       const categoryRef = firestoreAdmin.collection('categories').doc(category.id);
       batch.set(categoryRef, category);
     });
 
     initialArticles.forEach(article => {
-      // Use slug as the document ID for articles as before
       const articleRef = firestoreAdmin.collection('articles').doc(article.slug);
       batch.set(articleRef, article);
     });
@@ -207,7 +223,7 @@ export async function createArticleAction(
       title: articleData.title,
       description: articleData.description,
       categoryId: articleData.categoryId,
-      author: decodedToken.name || decodedToken.email || 'Admin',
+      authorId: decodedToken.uid,
       date: new Date().toISOString(),
       views: 0,
       image: articleData.image,
@@ -216,9 +232,318 @@ export async function createArticleAction(
 
     await articleRef.set(finalArticleData);
 
+    revalidatePath("/admin/articles");
+    revalidatePath(`/articles/${articleData.slug}`);
+
     return { success: true, message: 'Article created successfully!', slug: articleData.slug };
   } catch (error: any) {
     console.error('Error in createArticleAction:', error);
     return { success: false, message: `Failed to create article: ${error.message}` };
   }
+}
+
+export async function updateArticleAction(
+  authToken: string,
+  articleId: string,
+  articleData: Partial<Article>
+): Promise<{ success: boolean; message: string; slug?: string }> {
+  if (!authToken) {
+    return { success: false, message: 'Authentication required.' };
+  }
+
+  try {
+    const adminAuth = getAuth(getApps()[0]);
+    const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+    if (!decodedToken.admin) {
+      return { success: false, message: 'Authorization required. Must be an admin.' };
+    }
+
+    const firestoreAdmin = adminFirestore;
+    const articleRef = firestoreAdmin.collection('articles').doc(articleId);
+
+    await articleRef.update(articleData);
+
+    revalidatePath("/admin/articles");
+    if (articleData.slug) {
+      revalidatePath(`/articles/${articleData.slug}`);
+    }
+
+    return { success: true, message: 'Article updated successfully!', slug: articleData.slug };
+  } catch (error: any) {
+    console.error('Error in updateArticleAction:', error);
+    return { success: false, message: `Failed to update article: ${error.message}` };
+  }
+}
+
+export async function deleteArticleAction(
+  authToken: string,
+  articleId: string
+): Promise<{ success: boolean; message: string }> {
+  if (!authToken) {
+    return { success: false, message: 'Authentication required.' };
+  }
+
+  try {
+    const adminAuth = getAuth(getApps()[0]);
+    const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+    if (!decodedToken.admin) {
+      return { success: false, message: 'Authorization required. Must be an admin.' };
+    }
+
+    const firestoreAdmin = adminFirestore;
+    const articleRef = firestoreAdmin.collection('articles').doc(articleId);
+    
+    await articleRef.delete();
+
+    revalidatePath("/admin/articles");
+
+    return { success: true, message: 'Article deleted successfully!' };
+  } catch (error: any) {
+    console.error('Error in deleteArticleAction:', error);
+    return { success: false, message: `Failed to delete article: ${error.message}` };
+  }
+}
+
+async function getCategorySettings(): Promise<CategorySettings> {
+    const settingsRef = adminFirestore.collection('settings').doc('category');
+    const settingsDoc = await settingsRef.get();
+
+    if (settingsDoc.exists) {
+        return settingsDoc.data() as CategorySettings;
+    }
+    
+    console.log("Category settings not found. Initializing...");
+
+    try {
+        const categoriesSnapshot = await adminFirestore.collection('categories').get();
+        const categories = new Map<string, { parentId: string | null }>();
+        categoriesSnapshot.forEach((doc: QueryDocumentSnapshot) => {
+            const data = doc.data();
+            categories.set(doc.id, { parentId: data.parentId });
+        });
+
+        const depths = new Map<string, number>();
+        function getDepth(catId: string): number {
+            if (depths.has(catId)) return depths.get(catId)!;
+
+            const category = categories.get(catId);
+            if (!category || !category.parentId) {
+                depths.set(catId, 1);
+                return 1;
+            }
+            
+            const parentDepth = getDepth(category.parentId);
+            const currentDepth = parentDepth + 1;
+            depths.set(catId, currentDepth);
+            return currentDepth;
+        }
+
+        let maxExistingDepth = 0;
+        if (!categoriesSnapshot.empty) {
+            categories.forEach((_value, key) => {
+                maxExistingDepth = Math.max(maxExistingDepth, getDepth(key));
+            });
+        }
+        
+        const initialMaxDepth = Math.max(maxExistingDepth, 4);
+
+        const newSettings: CategorySettings = {
+            maxDepth: initialMaxDepth
+        };
+
+        await settingsRef.set(newSettings);
+        console.log(`Initialized category settings with maxDepth of ${initialMaxDepth}.`);
+        return newSettings;
+
+    } catch (error) {
+        console.error("Catastrophic error during category settings initialization:", error);
+        return { maxDepth: 4 }; // Failsafe default
+    }
+}
+
+export async function getCategorySettingsAction(authToken: string): Promise<{ success: boolean; settings?: CategorySettings; message?: string }> {
+    if (!authToken) {
+        return { success: false, message: 'Authentication required.' };
+    }
+    try {
+        const adminAuth = getAuth(getApps()[0]);
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+        if (!decodedToken.admin) {
+            return { success: false, message: 'Authorization required. Must be an admin.' };
+        }
+
+        const settings = await getCategorySettings();
+        return { success: true, settings };
+    } catch (error: any) {
+        console.error("Error fetching category settings: ", error);
+        return { success: false, message: "Failed to fetch settings." };
+    }
+}
+
+
+export async function updateCategorySettingsAction(authToken: string, newSettings: Partial<CategorySettings>) {
+    if (!authToken) {
+        return { success: false, message: 'Authentication required.' };
+    }
+
+    try {
+        const adminAuth = getAuth(getApps()[0]);
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+        if (!decodedToken.admin) {
+            return { success: false, message: 'Authorization required. Must be an admin.' };
+        }
+
+        const settingsRef = adminFirestore.collection('settings').doc('category');
+        await settingsRef.update(newSettings);
+        revalidatePath('/admin/categories'); // Revalidate the page to show new settings
+        return { success: true, message: "Settings updated successfully." };
+    } catch (error) {
+        console.error("Error updating category settings: ", error);
+        return { success: false, message: "Failed to update settings." };
+    }
+}
+
+async function getCategoryDepth(categoryId: string, db: Firestore): Promise<number> {
+    let depth = 0;
+    let currentId: string | null = categoryId;
+    while (currentId) {
+        const doc = await db.collection('categories').doc(currentId).get();
+        if (!doc.exists) {
+            break;
+        }
+        const data = doc.data();
+        currentId = data?.parentId;
+        depth++;
+    }
+    return depth;
+}
+
+export async function createCategoryAction(authToken: string, name: string, parentId: string | null) {
+  if (!authToken) {
+    return { success: false, message: 'Authentication required.' };
+  }
+
+  try {
+    const adminAuth = getAuth(getApps()[0]);
+    const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+    if (!decodedToken.admin) {
+      return { success: false, message: 'Authorization required. Must be an admin.' };
+    }
+
+    if (!name.trim()) {
+        return { success: false, message: 'Category name cannot be empty.' };
+    }
+
+    const { maxDepth } = await getCategorySettings();
+        
+    if (parentId) {
+        const parentDepth = await getCategoryDepth(parentId, adminFirestore);
+        if (parentDepth >= maxDepth) {
+            return { success: false, message: `Cannot create category. The maximum depth of ${maxDepth} has been reached.` };
+        }
+    }
+
+    const docRef = await adminFirestore.collection('categories').add({ name, parentId });
+    revalidatePath('/admin/categories');
+    return { success: true, message: 'Category created successfully.', id: docRef.id };
+  } catch (error) {
+    console.error('Error creating category:', error);
+    return { success: false, message: 'Error creating category.' };
+  }
+}
+
+const getAllCategories = async (): Promise<Category[]> => {
+    const querySnapshot = await adminFirestore.collection('categories').get();
+    return querySnapshot.docs.map((doc: QueryDocumentSnapshot) => ({
+        id: doc.id,
+        ...doc.data()
+    } as Category));
+}
+
+const getAllDescendantIds = (categoryId: string, allCategories: Category[]): string[] => {
+    const children = allCategories.filter(c => c.parentId === categoryId);
+    let descendantIds: string[] = children.map(c => c.id);
+    for (const child of children) {
+        descendantIds = [...descendantIds, ...getAllDescendantIds(child.id, allCategories)];
+    }
+    return descendantIds;
+};
+
+export async function updateCategoryAction(authToken: string, categoryId: string, newName: string, newParentId: string | null) {
+    if (!authToken) {
+        return { success: false, message: 'Authentication required.' };
+    }
+
+    try {
+        const adminAuth = getAuth(getApps()[0]);
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+        if (!decodedToken.admin) {
+            return { success: false, message: 'Authorization required. Must be an admin.' };
+        }
+
+        await adminFirestore.runTransaction(async (transaction: Transaction) => {
+            if (newParentId) {
+                if (categoryId === newParentId) {
+                    throw new Error("A category cannot be its own parent.");
+                }
+                const categoriesSnapshot = await transaction.get(adminFirestore.collection('categories'));
+                const allCategories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+
+                const descendantIds = getAllDescendantIds(categoryId, allCategories);
+                if (descendantIds.includes(newParentId)) {
+                    throw new Error("A category cannot be moved to be a child of its own descendant.");
+                }
+            }
+
+            const categoryRef = adminFirestore.collection('categories').doc(categoryId);
+            transaction.update(categoryRef, { name: newName, parentId: newParentId });
+        });
+
+        revalidatePath('/admin/categories');
+        return { success: true, message: 'Category updated successfully.' };
+
+    } catch (error: any) {
+        console.error('Error updating category:', error);
+        return { success: false, message: error.message || 'An unknown error occurred.' };
+    }
+}
+
+export async function deleteCategoryAction(authToken: string, categoryId: string, newParentIdForChildren: string | null) {
+    if (!authToken) {
+        return { success: false, message: 'Authentication required.' };
+    }
+
+    try {
+        const adminAuth = getAuth(getApps()[0]);
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+        if (!decodedToken.admin) {
+            return { success: false, message: 'Authorization required. Must be an admin.' };
+        }
+
+        await adminFirestore.runTransaction(async (transaction: Transaction) => {
+            const childrenSnapshot = await transaction.get(
+                adminFirestore.collection('categories').where('parentId', '==', categoryId)
+            );
+
+            childrenSnapshot.docs.forEach(childDoc => {
+                transaction.update(childDoc.ref, { parentId: newParentIdForChildren });
+            });
+
+            const categoryToDeleteRef = adminFirestore.collection('categories').doc(categoryId);
+            transaction.delete(categoryToDeleteRef);
+        });
+
+        revalidatePath('/admin/categories');
+        return { success: true, message: 'Category deleted and children reassigned successfully.' };
+    } catch (error: any) {
+        console.error('Error deleting category:', error);
+        return { success: false, message: error.message || 'An unknown error occurred.' };
+    }
 }

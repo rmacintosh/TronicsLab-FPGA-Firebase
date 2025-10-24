@@ -8,7 +8,7 @@ export interface Article {
   title: string;
   description: string;
   categoryId: string;
-  author: string;
+  authorId: string; // Changed from author
   date: string;
   views: number;
   image: {
@@ -30,12 +30,14 @@ export interface Category {
 export interface Comment {
   id: string;
   articleSlug: string;
+  userId: string; // Added userId
   userEmail: string;
   comment: string;
   date: string;
 }
 
 export interface User {
+  uid: string;
   email: string;
   name: string;
   avatar: string;

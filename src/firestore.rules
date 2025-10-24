@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -9,25 +10,27 @@ service cloud.firestore {
     match /categories/{categoryId} {
       allow get, list: if true;
     }
-    match /authors/{authorId} {
-      allow get, list: if true;
-    }
-
-    // Rules for the 'comments' collection
+    
+    // Comments can be read by anyone, created by any authenticated user, but only managed by admins.
     match /comments/{commentId} {
-      // Anyone can read comments
       allow get, list: if true;
-
-      // Authenticated users can create new comments
       allow create: if request.auth != null;
-
-      // Admins can update or delete any comment for moderation
       allow update, delete: if request.auth.token.admin == true;
     }
 
-    // Rules for user-specific data.
-    match /users/{userId}/{documents=**} {
-      allow read, write: if request.auth.uid == userId;
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Admins can list all users for the admin dashboard
+      allow list: if request.auth.token.admin == true;
+      // Any authenticated user can get a single user's document
+      allow get: if request.auth != null;
+      // A user can only write to their own document
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Settings can only be accessed by admins.
+    match /settings/{docId} {
+        allow read, write: if request.auth.token.admin == true;
     }
   }
 }

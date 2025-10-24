@@ -106,7 +106,7 @@ export default function CreateArticlePage() {
                 content: values.content,
                 image: {
                     id: 'new-article-' + articleSlug,
-                    imageUrl: `https://picsum.photos/seed/${articleSlug}/600/400`,
+                    imageUrl: "",
                     imageHint: 'abstract technology',
                 },
             };
