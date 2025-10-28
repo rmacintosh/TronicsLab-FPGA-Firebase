@@ -1,72 +1,121 @@
-"use client"
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Check, Trash2, X } from "lucide-react";
-import Link from "next/link";
+"use client";
+
 import { useData } from "@/components/providers/data-provider";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-export default function ManageCommentsPage() {
-    const { articles, comments } = useData();
+export default function CommentsPage() {
+  const { comments, userRoles, refreshData, deleteComment } = useData();
+  const { toast } = useToast();
 
-    const getArticleTitle = (slug: string) => {
-        return articles.find(a => a.slug === slug)?.title || 'Unknown Article';
+  const canModerate = userRoles.includes('admin') || userRoles.includes('moderator');
+
+  const handleDelete = async (id: string) => {
+    try {
+      const result = await deleteComment(id);
+      if (result.success) {
+        refreshData();
+        toast({
+          title: "Success",
+          description: "Comment deleted successfully.",
+        });
+      } else {
+        toast({
+            title: "Error",
+            description: result.message,
+            variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete comment.",
+        variant: "destructive",
+      });
     }
+  };
 
-    return (
-        <div className="space-y-8">
-            <h1 className="font-headline text-4xl font-bold tracking-tight">Manage Comments</h1>
-            
-            <Card>
-                <CardHeader>
-                    <CardTitle>All Comments</CardTitle>
-                    <CardDescription>Review and moderate comments from users.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Comment</TableHead>
-                                <TableHead className="hidden md:table-cell">Article</TableHead>
-                                <TableHead className="hidden md:table-cell">Date</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {comments.map((comment) => (
-                                <TableRow key={comment.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{comment.userEmail.split('@')[0]}</div>
-                                        <div className="text-xs text-muted-foreground">{comment.userEmail}</div>
-                                    </TableCell>
-                                    <TableCell className="max-w-sm truncate">{comment.comment}</TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                        <Link href={`/articles/${comment.articleSlug}`} className="hover:underline text-primary">
-                                            {getArticleTitle(comment.articleSlug)}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell">{new Date(comment.date).toLocaleDateString()}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex gap-2 justify-end">
-                                            <Button variant="ghost" size="icon" className="text-green-500 hover:text-green-600">
-                                                <Check className="h-4 w-4" />
-                                                <span className="sr-only">Approve</span>
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80">
-                                                <Trash2 className="h-4 w-4" />
-                                                <span className="sr-only">Delete</span>
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </div>
-    )
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Comments</CardTitle>
+        <CardDescription>
+          Manage all comments on your articles.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Comment</TableHead>
+              <TableHead>Author</TableHead>
+              <TableHead>Article</TableHead>
+              {canModerate && <TableHead className="text-right">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {comments.map((comment) => (
+              <TableRow key={comment.id}>
+                <TableCell className="font-medium">{comment.comment}</TableCell>
+                <TableCell>{comment.authorName}</TableCell>
+                <TableCell>{comment.articleTitle}</TableCell>
+                {canModerate && (
+                    <TableCell className="text-right">
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                            Delete
+                        </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the comment.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(comment.id)}>
+                            Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
 }

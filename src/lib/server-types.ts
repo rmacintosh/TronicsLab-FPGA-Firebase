@@ -2,6 +2,8 @@
 // These types are intended for server-side use only.
 // They are kept separate to avoid bundling server-only code with client components.
 
+export type UserRole = 'admin' | 'author' | 'moderator' | 'user';
+
 export interface Article {
   id: string;
   slug: string;
@@ -41,5 +43,5 @@ export interface User {
   email: string;
   name: string;
   avatar: string;
-  isAdmin?: boolean;
+  roles: UserRole[];
 }

@@ -1,14 +1,17 @@
+
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
 import { getApps } from 'firebase-admin/app';
 import { adminFirestore } from '@/firebase/admin';
-import { Article, Category, User } from '../lib/server-types';
+import { Article, Category, User, UserRole } from '../lib/server-types';
 import { NewArticleData } from '../lib/types';
 import { JSDOM } from 'jsdom';
 import { bundledLanguages, createHighlighter, Highlighter } from 'shiki';
 import { revalidatePath } from 'next/cache';
 import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
 // Create a single highlighter instance promise that can be reused.
 const highlighterPromise: Promise<Highlighter> = createHighlighter({
@@ -19,6 +22,12 @@ const highlighterPromise: Promise<Highlighter> = createHighlighter({
 interface CategorySettings {
     maxDepth: number;
 }
+
+// Helper to check for required roles
+const hasRequiredRole = (decodedToken: any, requiredRoles: UserRole[]): boolean => {
+  const userRoles = decodedToken.roles || [];
+  return requiredRoles.some(role => userRoles.includes(role));
+};
 
 // A server action to get syntax-highlighted HTML.
 export async function getHighlightedHtml(html: string): Promise<string> {
@@ -64,7 +73,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
     const adminAuth = getAuth(getApps()[0]);
     const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-    if (!decodedToken.admin) {
+    if (!hasRequiredRole(decodedToken, ['admin'])) {
        return {
          success: false,
          message: 'Authorization required. You must be an admin to perform this action.',
@@ -90,7 +99,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
         name: userName,
         email: userEmail,
         avatar: decodedToken.picture || '/default-avatar.png',
-        isAdmin: true, // The user running this action is an admin
+        roles: ['admin'], // The user running this action is an admin
     };
 
     const authorRef = firestoreAdmin.collection('users').doc(decodedToken.uid);
@@ -191,6 +200,39 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
   }
 }
 
+export async function uploadImageAction(authToken: string, formData: FormData): Promise<{ success: boolean; message: string; url?: string }> {
+  if (!authToken) {
+    return { success: false, message: 'Authentication required.' };
+  }
+
+  try {
+    const adminAuth = getAuth(getApps()[0]);
+    const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+    if (!hasRequiredRole(decodedToken, ['admin', 'author'])) {
+      return { success: false, message: 'Authorization required. Must be an admin or author.' };
+    }
+
+    const file = formData.get('image') as File;
+    if (!file) {
+      return { success: false, message: 'No image file provided.' };
+    }
+
+    const imageDir = join(process.cwd(), 'public', 'images');
+    await mkdir(imageDir, { recursive: true });
+
+    const byteLength = await file.arrayBuffer().then(buffer => buffer.byteLength);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const path = join(imageDir, file.name);
+    await writeFile(path, buffer);
+
+    return { success: true, message: 'Image uploaded successfully!', url: `/images/${file.name}` };
+  } catch (error: any) {
+    console.error('Error in uploadImageAction:', error);
+    return { success: false, message: `Failed to upload image: ${error.message}` };
+  }
+}
+
 export async function createArticleAction(
   authToken: string,
   articleData: NewArticleData
@@ -203,8 +245,8 @@ export async function createArticleAction(
     const adminAuth = getAuth(getApps()[0]);
     const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-    if (!decodedToken.admin) {
-      return { success: false, message: 'Authorization required. Must be an admin.' };
+    if (!hasRequiredRole(decodedToken, ['admin', 'author'])) {
+      return { success: false, message: 'Authorization required. Must be an admin or author.' };
     }
 
     const firestoreAdmin = adminFirestore;
@@ -255,8 +297,8 @@ export async function updateArticleAction(
     const adminAuth = getAuth(getApps()[0]);
     const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-    if (!decodedToken.admin) {
-      return { success: false, message: 'Authorization required. Must be an admin.' };
+    if (!hasRequiredRole(decodedToken, ['admin', 'author'])) {
+      return { success: false, message: 'Authorization required. Must be an admin or author.' };
     }
 
     const firestoreAdmin = adminFirestore;
@@ -288,8 +330,8 @@ export async function deleteArticleAction(
     const adminAuth = getAuth(getApps()[0]);
     const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-    if (!decodedToken.admin) {
-      return { success: false, message: 'Authorization required. Must be an admin.' };
+    if (!hasRequiredRole(decodedToken, ['admin', 'author'])) {
+      return { success: false, message: 'Authorization required. Must be an admin or author.' };
     }
 
     const firestoreAdmin = adminFirestore;
@@ -304,6 +346,32 @@ export async function deleteArticleAction(
     console.error('Error in deleteArticleAction:', error);
     return { success: false, message: `Failed to delete article: ${error.message}` };
   }
+}
+
+export async function deleteCommentAction(authToken: string, commentId: string): Promise<{ success: boolean, message: string }> {
+    if (!authToken) {
+        return { success: false, message: 'Authentication required.' };
+    }
+
+    try {
+        const adminAuth = getAuth(getApps()[0]);
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+        if (!hasRequiredRole(decodedToken, ['admin', 'moderator'])) {
+            return { success: false, message: 'Authorization required. Must be an admin or moderator.' };
+        }
+
+        const firestoreAdmin = adminFirestore;
+        const commentRef = firestoreAdmin.collection('comments').doc(commentId);
+        await commentRef.delete();
+
+        revalidatePath('/admin/comments');
+
+        return { success: true, message: 'Comment deleted successfully!' };
+    } catch (error: any) {
+        console.error('Error in deleteCommentAction:', error);
+        return { success: false, message: `Failed to delete comment: ${error.message}` };
+    }
 }
 
 async function getCategorySettings(): Promise<CategorySettings> {
@@ -371,7 +439,7 @@ export async function getCategorySettingsAction(authToken: string): Promise<{ su
         const adminAuth = getAuth(getApps()[0]);
         const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-        if (!decodedToken.admin) {
+        if (!hasRequiredRole(decodedToken, ['admin'])) {
             return { success: false, message: 'Authorization required. Must be an admin.' };
         }
 
@@ -393,7 +461,7 @@ export async function updateCategorySettingsAction(authToken: string, newSetting
         const adminAuth = getAuth(getApps()[0]);
         const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-        if (!decodedToken.admin) {
+        if (!hasRequiredRole(decodedToken, ['admin'])) {
             return { success: false, message: 'Authorization required. Must be an admin.' };
         }
 
@@ -431,7 +499,7 @@ export async function createCategoryAction(authToken: string, name: string, pare
     const adminAuth = getAuth(getApps()[0]);
     const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-    if (!decodedToken.admin) {
+    if (!hasRequiredRole(decodedToken, ['admin'])) {
       return { success: false, message: 'Authorization required. Must be an admin.' };
     }
 
@@ -483,7 +551,7 @@ export async function updateCategoryAction(authToken: string, categoryId: string
         const adminAuth = getAuth(getApps()[0]);
         const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-        if (!decodedToken.admin) {
+        if (!hasRequiredRole(decodedToken, ['admin'])) {
             return { success: false, message: 'Authorization required. Must be an admin.' };
         }
 
@@ -523,7 +591,7 @@ export async function deleteCategoryAction(authToken: string, categoryId: string
         const adminAuth = getAuth(getApps()[0]);
         const decodedToken = await adminAuth.verifyIdToken(authToken);
 
-        if (!decodedToken.admin) {
+        if (!hasRequiredRole(decodedToken, ['admin'])) {
             return { success: false, message: 'Authorization required. Must be an admin.' };
         }
 
@@ -546,4 +614,66 @@ export async function deleteCategoryAction(authToken: string, categoryId: string
         console.error('Error deleting category:', error);
         return { success: false, message: error.message || 'An unknown error occurred.' };
     }
+}
+
+export async function updateUserRolesAction(authToken: string, uid: string, roles: UserRole[]): Promise<{ success: boolean; message: string }> {
+  if (!authToken) {
+    return { success: false, message: 'Authentication required.' };
+  }
+
+  try {
+    const adminAuth = getAuth(getApps()[0]);
+    const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+    if (!hasRequiredRole(decodedToken, ['admin'])) {
+      return { success: false, message: 'Authorization required. Must be an admin.' };
+    }
+
+    if (decodedToken.uid === uid) {
+      return { success: false, message: 'Cannot change your own roles.' };
+    }
+
+    await adminAuth.setCustomUserClaims(uid, { roles });
+
+    const userRef = adminFirestore.collection('users').doc(uid);
+    await userRef.update({ roles });
+
+    revalidatePath('/admin/users');
+
+    return { success: true, message: 'User roles updated successfully.' };
+  } catch (error: any) {
+    console.error('Error updating user roles:', error);
+    return { success: false, message: `Failed to update user roles: ${error.message}` };
+  }
+}
+
+export async function deleteUserAction(authToken: string, uid: string): Promise<{ success: boolean; message: string }> {
+  if (!authToken) {
+    return { success: false, message: 'Authentication required.' };
+  }
+
+  try {
+    const adminAuth = getAuth(getApps()[0]);
+    const decodedToken = await adminAuth.verifyIdToken(authToken);
+
+    if (!hasRequiredRole(decodedToken, ['admin'])) {
+      return { success: false, message: 'Authorization required. Must be an admin.' };
+    }
+
+    if (decodedToken.uid === uid) {
+      return { success: false, message: 'Cannot delete your own account.' };
+    }
+
+    await adminAuth.deleteUser(uid);
+
+    const userRef = adminFirestore.collection('users').doc(uid);
+    await userRef.delete();
+
+    revalidatePath('/admin/users');
+
+    return { success: true, message: 'User deleted successfully.' };
+  } catch (error: any) {
+    console.error('Error deleting user:', error);
+    return { success: false, message: `Failed to delete user: ${error.message}` };
+  }
 }

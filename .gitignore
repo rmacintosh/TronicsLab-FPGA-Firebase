@@ -47,3 +47,7 @@ firestore-debug.log
 
 # chat log
 src/Gemini-Chat.md
+
+# maybe temporary
+fix-user-claims.js
+serviceAccountKey.json

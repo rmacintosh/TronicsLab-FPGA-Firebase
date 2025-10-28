@@ -33,8 +33,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function ArticlesPage() {
-  const { articles, refreshData, deleteArticle } = useData();
+  const { articles, userRoles, refreshData, deleteArticle } = useData();
   const { toast } = useToast();
+
+  const canCreate = userRoles.includes('admin') || userRoles.includes('author');
 
   const handleDelete = async (id: string) => {
     try {
@@ -63,11 +65,18 @@ export default function ArticlesPage() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Articles</CardTitle>
-        <CardDescription>
-          Manage your articles. You can edit or delete existing articles.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+            <CardTitle>Articles</CardTitle>
+            <CardDescription>
+            Manage your articles. You can edit or delete existing articles.
+            </CardDescription>
+        </div>
+        {canCreate && (
+            <Link href="/admin/articles/new">
+                <Button>New Article</Button>
+            </Link>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
@@ -76,7 +85,7 @@ export default function ArticlesPage() {
               <TableHead>Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Author</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {canCreate && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -85,34 +94,36 @@ export default function ArticlesPage() {
                 <TableCell className="font-medium">{article.title}</TableCell>
                 <TableCell>{article.categoryName}</TableCell>
                 <TableCell>{article.authorName}</TableCell>
-                <TableCell className="text-right">
-                  <Link href={`/admin/articles/edit/${article.slug}`}>
-                    <Button variant="outline" size="sm" className="mr-2">
-                      Edit
-                    </Button>
-                  </Link>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the article.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(article.id)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
+                {canCreate && (
+                    <TableCell className="text-right">
+                    <Link href={`/admin/articles/edit/${article.slug}`}>
+                        <Button variant="outline" size="sm" className="mr-2">
+                        Edit
+                        </Button>
+                    </Link>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                            Delete
+                        </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the article.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(article.id)}>
+                            Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

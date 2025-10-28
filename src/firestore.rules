@@ -3,25 +3,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Publicly readable collections
+    // Articles can be read by anyone.
+    // Creation is limited to admins and authors.
+    // Updates and deletions are limited to admins or the article's original author.
     match /articles/{articleId} {
       allow get, list: if true;
+      allow create: if 'admin' in request.auth.token.roles || 'author' in request.auth.token.roles;
+      allow update, delete: if ('admin' in request.auth.token.roles) || (request.auth.uid == resource.data.authorId && 'author' in request.auth.token.roles);
     }
+
+    // Categories can be read by anyone.
     match /categories/{categoryId} {
       allow get, list: if true;
     }
     
-    // Comments can be read by anyone, created by any authenticated user, but only managed by admins.
+    // Comments can be read by anyone, created by any authenticated user, but only managed by admins or moderators.
     match /comments/{commentId} {
       allow get, list: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth.token.admin == true;
+      allow update, delete: if 'admin' in request.auth.token.roles || 'moderator' in request.auth.token.roles;
     }
 
     // Rules for the 'users' collection
     match /users/{userId} {
       // Admins can list all users for the admin dashboard
-      allow list: if request.auth.token.admin == true;
+      allow list: if 'admin' in request.auth.token.roles;
       // Any authenticated user can get a single user's document
       allow get: if request.auth != null;
       // A user can only write to their own document
@@ -30,7 +36,7 @@ service cloud.firestore {
 
     // Settings can only be accessed by admins.
     match /settings/{docId} {
-        allow read, write: if request.auth.token.admin == true;
+        allow read, write: if 'admin' in request.auth.token.roles;
     }
   }
 }

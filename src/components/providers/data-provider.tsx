@@ -6,9 +6,9 @@ import { collection, doc, DocumentData, QueryDocumentSnapshot, setDoc, SnapshotO
 import { useCollection, useDocument } from 'react-firebase-hooks/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { getAuth } from 'firebase/auth';
-import { seedDatabaseAction, createArticleAction, deleteArticleAction, updateArticleAction, createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction } from '@/app/actions';
-import { Article, Category, Comment, User } from '@/lib/server-types';
-import { NewArticleData, FullArticle } from '@/lib/types';
+import { seedDatabaseAction, createArticleAction, deleteArticleAction, updateArticleAction, createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction, updateUserRolesAction, deleteUserAction, deleteCommentAction } from '@/app/actions';
+import { Article, Category, Comment, User, UserRole } from '@/lib/server-types';
+import { NewArticleData, FullArticle, FullComment } from '@/lib/types';
 
 // Generic converter to add the document ID to the object
 const idConverter = <T,>() => ({
@@ -33,12 +33,13 @@ interface CategorySettings {
 
 interface DataContextType {
     user: User | null;
+    userRoles: UserRole[];
+    isAdmin: boolean; // <-- ADDED: Explicitly define isAdmin status
     articles: FullArticle[];
     categories: Category[];
-    comments: Comment[];
+    comments: FullComment[];
     users: User[];
     isLoading: boolean;
-    isAdmin: boolean;
     seedDatabase: () => Promise<void>;
     createArticle: (article: NewArticleData) => Promise<{ success: boolean; message: string; slug?: string; }>;
     updateArticle: (articleId: string, article: Partial<Article>) => Promise<{ success: boolean; message: string; slug?: string; }>;
@@ -48,14 +49,18 @@ interface DataContextType {
     deleteCategory: (categoryId: string, newParentIdForChildren: string | null) => Promise<{ success: boolean; message: string; }>;
     getCategorySettings: () => Promise<{ success: boolean; settings?: CategorySettings; message?: string; }>;
     updateCategorySettings: (newSettings: Partial<CategorySettings>) => Promise<{ success: boolean; message: string; }>;
+    updateUserRoles: (uid: string, roles: UserRole[]) => Promise<{ success: boolean; message: string; }>;
+    deleteUser: (uid: string) => Promise<{ success: boolean; message: string; }>;
+    deleteComment: (commentId: string) => Promise<{ success: boolean; message: string; }>;
     refreshData: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { firestore, user, claims } = useFirebase();
-    const isAdmin = useMemo(() => !!claims?.claims.admin, [claims]);
+    const { firestore, user, claims, isUserLoading: isAuthLoading } = useFirebase(); // Renamed to avoid conflict
+    const userRoles = useMemo(() => (claims?.claims.roles || []) as UserRole[], [claims]);
+    const isAdmin = useMemo(() => userRoles.includes('admin'), [userRoles]); // <-- ADDED: Calculate isAdmin based on roles
     const [refresh, setRefresh] = useState(0);
 
     const articlesCollection = useMemo(() => firestore ? collection(firestore, 'articles').withConverter<Article>(idConverter<Article>()) : null, [firestore, refresh]);
@@ -87,6 +92,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             authorName: userMap.get(article.authorId) || 'Unknown Author',
         }));
     }, [articles, categories, users]);
+
+    const fullComments = useMemo(() => {
+        const articleMap = new Map(articles.map(a => [a.id, a.title]));
+        const userMap = new Map(users.map(u => [u.uid, u.name]));
+        return comments.map(comment => ({
+            ...comment,
+            articleTitle: articleMap.get(comment.articleSlug) || 'Unknown Article',
+            authorName: userMap.get(comment.userId) || 'Unknown Author',
+        }));
+    }, [comments, articles, users]);
     
     const createArticle = async (article: NewArticleData) => {
         const auth = getAuth();
@@ -116,6 +131,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         const token = await currentUser.getIdToken();
         return await deleteArticleAction(token, articleId);
+    };
+
+    const deleteComment = async (commentId: string) => {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            throw new Error("You must be logged in to delete a comment.");
+        }
+        const token = await currentUser.getIdToken();
+        return await deleteCommentAction(token, commentId);
     };
   
     const createCategory = async (name: string, parentId: string | null) => {
@@ -168,6 +193,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return await updateCategorySettingsAction(token, newSettings);
     };
 
+    const updateUserRoles = async (uid: string, roles: UserRole[]) => {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            throw new Error("You must be logged in to update user roles.");
+        }
+        const token = await currentUser.getIdToken();
+        return await updateUserRolesAction(token, uid, roles);
+    };
+
+    const deleteUser = async (uid: string) => {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            throw new Error("You must be logged in to delete a user.");
+        }
+        const token = await currentUser.getIdToken();
+        return await deleteUserAction(token, uid);
+    };
+
     const seedDatabase = async () => {
       const auth = getAuth();
       const currentUser = auth.currentUser;
@@ -187,21 +232,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const value: DataContextType = {
         user: userProfile,
+        userRoles,
+        isAdmin, // <-- ADDED: Provide isAdmin in the context
         articles: fullArticles,
         categories,
-        comments,
+        comments: fullComments,
         users,
-        isLoading: articlesLoading || categoriesLoading || userLoading || commentsLoading || !user,
-        isAdmin,
+        isLoading: isAuthLoading || articlesLoading || categoriesLoading || userLoading || commentsLoading,
         seedDatabase,
         createArticle,
         updateArticle,
         deleteArticle,
+        deleteComment,
         createCategory,
         updateCategory,
         deleteCategory,
         getCategorySettings,
         updateCategorySettings,
+        updateUserRoles,
+        deleteUser,
         refreshData,
     };
 

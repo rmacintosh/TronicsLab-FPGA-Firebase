@@ -1,5 +1,5 @@
 
-import { Article } from "./server-types";
+import { Article, Comment } from "./server-types";
 
 // This type is used for the form when creating a new article.
 // It is intentionally kept in a separate, client-safe file.
@@ -20,4 +20,9 @@ export type NewArticleData = {
 export interface FullArticle extends Article {
   categoryName: string;
   authorName: string;
+}
+
+export interface FullComment extends Comment {
+    articleTitle: string;
+    authorName: string;
 }

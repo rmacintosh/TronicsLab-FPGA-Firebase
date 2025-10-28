@@ -20,7 +20,7 @@ import { useData } from "@/components/providers/data-provider";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
-  const { articles, comments, seedDatabase } = useData();
+  const { articles, comments, users, seedDatabase } = useData();
   const { toast } = useToast();
 
   const handleSeedDatabase = async () => {
@@ -70,18 +70,20 @@ export default function AdminDashboard() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Registered Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1</div>
-             <p className="text-xs text-muted-foreground">
-              (mock data)
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/users">
+          <Card className="hover:bg-muted/50 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Registered Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{users.length}</div>
+              <p className="text-xs text-muted-foreground">
+                total registered users
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
       
       <Card>
@@ -91,13 +93,18 @@ export default function AdminDashboard() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
             <Button asChild>
-                <Link href="/admin/articles/create">
+                <Link href="/admin/articles/new">
                     <FilePlus className="mr-2 h-4 w-4" /> Create New Article
                 </Link>
             </Button>
             <Button asChild variant="secondary">
                 <Link href="/admin/articles">
                     <FilePen className="mr-2 h-4 w-4" /> Manage Articles
+                </Link>
+            </Button>
+            <Button asChild variant="secondary">
+                <Link href="/admin/users">
+                    <Users className="mr-2 h-4 w-4" /> Manage Users
                 </Link>
             </Button>
             <Button asChild variant="secondary">

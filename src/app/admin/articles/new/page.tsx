@@ -14,8 +14,8 @@ import { useData } from "@/components/providers/data-provider";
 import { useFirebase } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { Category, Article } from "@/lib/server-types";
-import { useMemo, useEffect, useState, use } from "react";
+import { Category } from "@/lib/server-types";
+import { useMemo, useState } from "react";
 import { uploadImageAction } from "@/app/actions";
 
 const articleSchema = z.object({
@@ -31,18 +31,12 @@ interface HierarchicalCategory extends Category {
   level: number;
 }
 
-export default function EditArticlePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
-  const { articles, categories, refreshData, updateArticle } = useData();
+export default function NewArticlePage() {
+  const { categories, refreshData, createArticle } = useData();
   const { user } = useFirebase();
   const router = useRouter();
   const { toast } = useToast();
   const [imageFile, setImageFile] = useState<File | null>(null);
-
-  const article = useMemo(
-    () => articles.find((a) => a.slug === slug),
-    [articles, slug]
-  );
 
   const form = useForm<z.infer<typeof articleSchema>>({
     resolver: zodResolver(articleSchema),
@@ -55,27 +49,15 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
     },
   });
 
-  useEffect(() => {
-    if (article) {
-      form.reset({
-        title: article.title,
-        description: article.description,
-        content: article.content,
-        imageHint: article.image?.imageHint || "",
-        categoryId: article.categoryId,
-      });
-    }
-  }, [article, form]);
-
   async function onSubmit(values: z.infer<typeof articleSchema>) {
-    if (!user || !article) {
-      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to edit an article." });
+    if (!user) {
+      toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to create an article." });
       return;
     }
 
     try {
         const authToken = await user.getIdToken();
-        let imageUrl = article.image?.imageUrl;
+        let imageUrl = "";
 
         if (imageFile) {
             const formData = new FormData();
@@ -85,30 +67,33 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
                 throw new Error(uploadResult.message || "Image upload failed.");
             }
             imageUrl = uploadResult.url;
+        } else {
+            throw new Error("An article image is required.");
         }
 
-        const updatedArticleData: Partial<Article> = {
-            title: values.title,
-            description: values.description,
-            content: values.content,
-            categoryId: values.categoryId,
-            image: {
-                id: article.image?.id || 'img-' + article.slug,
-                imageUrl: imageUrl!,
-                imageHint: values.imageHint,
-            },
-        };
+      const slug = values.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
 
-      const result = await updateArticle(article.id, updatedArticleData);
+      const result = await createArticle({
+        slug,
+        title: values.title,
+        description: values.description,
+        content: values.content,
+        categoryId: values.categoryId,
+        image: {
+            id: 'img-' + Date.now(),
+            imageUrl: imageUrl!,
+            imageHint: values.imageHint,
+        },
+    });
 
-      if (result.success) {
-        toast({ title: "Article Updated!", description: "The article has been successfully updated." });
+      if (result.success && result.slug) {
+        toast({ title: "Article Created!", description: "The article has been successfully created." });
         refreshData();
-        router.push(`/admin/articles`);
+        router.push(`/admin/articles/edit/${result.slug}`);
       } else {
         toast({
             variant: "destructive",
-            title: "Error Updating Article",
+            title: "Error Creating Article",
             description: result.message || "An unexpected error occurred.",
         });
       }
@@ -116,7 +101,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error Updating Article",
+        title: "Error Creating Article",
         description: error.message || "An unexpected error occurred.",
       });
     }
@@ -164,15 +149,11 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
     return options;
   };
 
-  if (!article) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Edit Article</CardTitle>
-        <CardDescription>Edit the details of your article.</CardDescription>
+        <CardTitle>New Article</CardTitle>
+        <CardDescription>Create a new article for your website.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -264,7 +245,7 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
                 )}
             />
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Saving...' : 'Save Changes'}
+              {form.formState.isSubmitting ? 'Creating...' : 'Create Article'}
             </Button>
           </form>
         </Form>

@@ -19,7 +19,7 @@ interface ViewState {
 
 export default function MainSidebar() {
     const pathname = usePathname();
-    const { categories, articles, isAdmin } = useData();
+    const { categories, articles } = useData();
     const [currentView, setCurrentView] = useState<ViewState>({ type: 'categories', id: null });
 
     const mainNav = [
@@ -138,22 +138,6 @@ export default function MainSidebar() {
                         ))}
                     </SidebarMenu>
                 </div>
-
-                {isAdmin && (
-                    <div className="mt-auto pt-4">
-                        <h3 className="px-2 text-xs font-medium text-muted-foreground mb-2 group-data-[collapsible=icon]:hidden">Admin</h3>
-                        <SidebarMenu>
-                            <SidebarMenuItem>
-                                <Link href="/admin" className="w-full">
-                                    <SidebarMenuButton isActive={pathname.startsWith('/admin')} tooltip="Admin Settings">
-                                        <Settings />
-                                        <span className="group-data-[collapsible=icon]:hidden">Admin Panel</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            </SidebarMenuItem>
-                        </SidebarMenu>
-                    </div>
-                )}
             </SidebarContent>
             <SidebarFooter className="p-2 border-t flex-row items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-4">
                 <UserNav />
