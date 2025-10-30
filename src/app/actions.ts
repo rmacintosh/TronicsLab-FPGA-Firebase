@@ -677,3 +677,42 @@ export async function deleteUserAction(authToken: string, uid: string): Promise<
     return { success: false, message: `Failed to delete user: ${error.message}` };
   }
 }
+
+export async function createUserDocumentAction(authToken: string, name: string): Promise<{ success: boolean; message: string }> {
+    if (!authToken) {
+        return { success: false, message: 'Authentication required. No auth token provided.' };
+    }
+
+    try {
+        const adminAuth = getAuth(getApps()[0]);
+        const decodedToken = await adminAuth.verifyIdToken(authToken);
+        const userEmail = decodedToken.email;
+        
+        if (!userEmail) {
+            return { success: false, message: 'User email not found in auth token.' };
+        }
+
+        const userRef = adminFirestore.collection('users').doc(decodedToken.uid);
+        const userDoc = await userRef.get();
+
+        if (userDoc.exists) {
+            return { success: false, message: 'User document already exists.' };
+        }
+
+        const newUser: Omit<User, 'id'> = {
+            uid: decodedToken.uid,
+            name: name,
+            email: userEmail,
+            avatar: '/default-avatar.png', 
+            roles: ['user'],
+        };
+
+        await userRef.set(newUser);
+
+        return { success: true, message: 'User document created successfully.' };
+
+    } catch (error: any) {
+        console.error('Error in createUserDocumentAction:', error);
+        return { success: false, message: `Failed to create user document: ${error.message}` };
+    }
+}

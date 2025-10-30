@@ -23,6 +23,7 @@ import { signOut } from "firebase/auth"
 import { useData } from "./providers/data-provider"
 import { useSidebar } from "./ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
+import { useRouter } from "next/navigation"
 
 
 export function UserNav() {
@@ -30,9 +31,11 @@ export function UserNav() {
   const auth = useAuth();
   const { isAdmin } = useData();
   const { state } = useSidebar();
+  const router = useRouter();
 
   const handleLogout = () => {
     signOut(auth);
+    router.push('/');
   };
   
   if (isUserLoading) {

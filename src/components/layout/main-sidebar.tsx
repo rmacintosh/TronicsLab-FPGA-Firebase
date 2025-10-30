@@ -1,15 +1,16 @@
-
 'use client'
 
 import { Button } from "@/components/ui/button"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInput, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar"
-import { ArrowLeft, Cpu, Home, Search, Settings } from "lucide-react"
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
+import { ArrowLeft, ChevronRight, Home } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { UserNav } from "../user-nav"
 import { ThemeToggle } from "../theme-toggle"
 import { useData } from "../providers/data-provider"
 import { useState } from "react"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 
 // Define the structure for our view state
 interface ViewState {
@@ -21,6 +22,7 @@ export default function MainSidebar() {
     const pathname = usePathname();
     const { categories, articles } = useData();
     const [currentView, setCurrentView] = useState<ViewState>({ type: 'categories', id: null });
+    const { isMobile, openMobile, setOpenMobile } = useSidebar();
 
     const mainNav = [
         { href: "/", label: "Home", icon: Home },
@@ -61,37 +63,31 @@ export default function MainSidebar() {
         setCurrentView({ type: 'categories', id: null });
     }
 
-    return (
-        <Sidebar collapsible="icon">
-            <SidebarHeader className="p-4">
-                <div className="flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2" onClick={handleGoHome}>
-                        <Button variant="ghost" size="icon" className="shrink-0 text-primary hover:bg-primary/10">
-                            <Cpu className="size-6" />
-                        </Button>
-                        <h1 className="font-headline text-xl font-semibold group-data-[collapsible=icon]:hidden">TronicsLab</h1>
-                    </Link>
-                </div>
-                <div className="relative mt-2 group-data-[collapsible=icon]:hidden">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <SidebarInput placeholder="Search..." className="pl-8" />
-                </div>
+    const closeSheet = () => {
+        setOpenMobile(false);
+    }
+
+    const SidebarContentComp = () => (
+        <>
+            <SidebarHeader className="p-4 flex flex-row items-center justify-start group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+                <Link href="/" className="flex items-center gap-2" onClick={handleGoHome}>
+                    <Button variant="ghost" size="icon" className="shrink-0 text-primary hover:bg-primary/10">
+                        <Image src="/logo.svg" alt="TronicsLab Logo" width={24} height={24} className="transition-all duration-300 ease-in-out group-hover:scale-110" />
+                    </Button>
+                    <h1 className="font-headline text-xl font-semibold group-data-[collapsible=icon]:hidden">TronicsLab</h1>
+                </Link>
             </SidebarHeader>
-            <SidebarContent className="p-4 pt-0">
+            <SidebarContent className="p-2 pt-0">
                 <SidebarMenu>
-                    <SidebarMenuItem className="group-data-[collapsible=icon]:block hidden">
-                        <SidebarMenuButton tooltip="Search">
-                            <Search/>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
                     {mainNav.map((item) => (
                         <SidebarMenuItem key={item.href}>
-                             <Link href={item.href} className="w-full" onClick={handleGoHome}>
+                            <Link href={item.href} className="w-full" onClick={() => { handleGoHome(); closeSheet() }}>
                                 <SidebarMenuButton
                                     isActive={pathname === item.href}
                                     tooltip={item.label}
+                                    variant="sidebar"
                                 >
-                                    <item.icon />
+                                    <item.icon className="size-4"/>
                                     <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                                 </SidebarMenuButton>
                             </Link>
@@ -105,33 +101,34 @@ export default function MainSidebar() {
                         {/* -- Back Button -- */}
                         {currentCategory && (
                             <SidebarMenuItem>
-                                <SidebarMenuButton onClick={handleGoBack} className="text-muted-foreground">
-                                    <ArrowLeft className="w-4 h-4 mr-2"/>
+                                <SidebarMenuButton onClick={handleGoBack} className="text-muted-foreground font-light text-sm h-8 justify-start">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
                                     <span>Go Back</span>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         )}
 
                         {/* -- Section Header -- */}
-                        <h3 className="px-2 mt-2 text-sm font-semibold text-foreground mb-2 truncate">
+                        <h3 className="px-2 mt-2 text-xs font-semibold text-foreground/80 mb-2 truncate">
                             {currentCategory ? currentCategory.name : 'All Categories'}
                         </h3>
 
                         {/* -- Display Sub-Categories -- */}
                         {displayedCategories.map(category => (
                             <SidebarMenuItem key={category.id}>
-                                <SidebarMenuButton onClick={() => handleCategoryClick(category.id)} className="justify-between">
+                                <SidebarMenuButton onClick={() => handleCategoryClick(category.id)} className="justify-between h-8 font-light text-sm" variant="sidebar">
                                     <span className="truncate">{category.name}</span>
+                                    <ChevronRight className="w-4 h-4"/>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
                         ))}
-                        
+
                         {/* -- Display Articles -- */}
                         {articlesToDisplay.map(article => (
                             <SidebarMenuItem key={article.id}>
-                                <Link href={`/articles/${article.slug}`} className="w-full">
-                                    <SidebarMenuButton isActive={pathname.endsWith(article.slug)} className="h-auto py-1.5">
-                                       <span className="truncate whitespace-normal leading-normal">{article.title}</span>
+                                <Link href={`/articles/${article.slug}`} className="w-full" onClick={closeSheet}>
+                                    <SidebarMenuButton isActive={pathname.endsWith(article.slug)} className="h-auto py-1.5 justify-start font-light text-sm h-8" variant="sidebar">
+                                        <span className="truncate whitespace-normal leading-normal">{article.title}</span>
                                     </SidebarMenuButton>
                                 </Link>
                             </SidebarMenuItem>
@@ -143,9 +140,25 @@ export default function MainSidebar() {
                 <UserNav />
                 <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col">
                     <ThemeToggle />
-                    <SidebarTrigger />
+                    {!isMobile && <SidebarTrigger />}
                 </div>
             </SidebarFooter>
+        </>
+    )
+
+    if (isMobile) {
+        return (
+            <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+                <SheetContent side="left" className="p-0 flex flex-col w-[18rem]">
+                    <SidebarContentComp />
+                </SheetContent>
+            </Sheet>
+        )
+    }
+
+    return (
+        <Sidebar collapsible="icon" className="hidden sm:flex sm:flex-col w-[18rem]">
+            <SidebarContentComp />
         </Sidebar>
     )
 }

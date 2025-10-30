@@ -3,8 +3,9 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import MainSidebar from "@/components/layout/main-sidebar";
+import { MainHeader } from "@/components/layout/main-header";
 import { MainContent } from "@/components/layout/main-content";
 import { DataProvider } from "@/components/providers/data-provider";
 import { FirebaseClientProvider } from "@/firebase";
@@ -32,9 +33,12 @@ export default function RootLayout({
             <DataProvider>
               <SidebarProvider>
                 <MainSidebar />
-                <MainContent>
-                  {children}
-                </MainContent>
+                <SidebarInset>
+                    <MainHeader />
+                    <MainContent>
+                      {children}
+                    </MainContent>
+                </SidebarInset>
                 <Toaster />
               </SidebarProvider>
             </DataProvider>

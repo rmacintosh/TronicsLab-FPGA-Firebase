@@ -22,6 +22,7 @@
 
 # misc
 /lib
+/public
 .DS_Store
 *.pem
 
@@ -48,6 +49,8 @@ firestore-debug.log
 # chat log
 src/Gemini-Chat.md
 
-# maybe temporary
+# admin tools
+/admin-tools
 fix-user-claims.js
 serviceAccountKey.json
+readCustomClaim.js

@@ -103,7 +103,7 @@ export default function ArticlesPage() {
                     </Link>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
+                        <Button variant="destructive" size="sm" className="hover:bg-destructive/90">
                             Delete
                         </Button>
                         </AlertDialogTrigger>

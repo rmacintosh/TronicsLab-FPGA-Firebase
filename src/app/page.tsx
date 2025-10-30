@@ -1,15 +1,13 @@
-"use client"
+'use client'
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, Eye } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useData } from "@/components/providers/data-provider";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 export default function Home() {
-  const { articles, isLoading } = useData();
-  const featuredArticles = articles.slice(0, 3);
+  const { categories, isLoading } = useData();
+  const topLevelCategories = categories.filter((c) => c.parentId === null);
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -17,48 +15,27 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-4">
-        <h1 className="font-headline text-4xl font-bold tracking-tight lg:text-5xl">Welcome to TronicsLab</h1>
+      <header className="space-y-2">
+        <h1 className="font-headline text-4xl font-bold tracking-tight lg:text-5xl">Explore Topics</h1>
         <p className="text-lg text-muted-foreground">
-          Your source for high-quality tutorials, articles, and resources on FPGA development and digital electronics. Whether you're a beginner or an expert, you'll find something to learn.
+          Browse our collection of articles and tutorials organized by category.
         </p>
       </header>
 
       <section>
-        <h2 className="font-headline text-3xl font-semibold tracking-tight mb-6">Featured Articles</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredArticles.map((article) => (
-            <Card key={article.id} className="flex flex-col overflow-hidden">
-              <CardHeader className="p-0">
-                <Link href={`/articles/${article.slug}`} className="block">
-                  <Image
-                    src={article.image.imageUrl}
-                    alt={article.title}
-                    width={600}
-                    height={400}
-                    className="aspect-video w-full object-cover"
-                    data-ai-hint={article.image.imageHint}
-                  />
-                </Link>
-              </CardHeader>
-              <CardContent className="flex-grow p-6">
-                <CardTitle className="font-headline text-xl mb-2">
-                  <Link href={`/articles/${article.slug}`} className="hover:text-primary transition-colors">{article.title}</Link>
-                </CardTitle>
-                <CardDescription>{article.description}</CardDescription>
-              </CardContent>
-              <CardFooter className="flex justify-between items-center p-6 pt-0">
-                 <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Eye className="size-4" />
-                    <span>{article.views.toLocaleString()} views</span>
-                 </div>
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`/articles/${article.slug}`}>
-                    Read More <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
+          {topLevelCategories.map((category) => (
+            <Link key={category.id} href={`/categories/${category.slug}`} className="block hover:scale-105 transition-transform duration-200">
+              <Card className="h-full flex flex-col">
+                <CardHeader className="flex-grow">
+                  <CardTitle className="font-headline text-xl mb-2">{category.name}</CardTitle>
+                  <CardDescription>{category.description}</CardDescription>
+                </CardHeader>
+                <div className="p-6 pt-0 flex items-center font-medium text-primary">
+                  View Articles <ArrowRight className="ml-2 size-4" />
+                </div>
+              </Card>
+            </Link>
           ))}
         </div>
       </section>

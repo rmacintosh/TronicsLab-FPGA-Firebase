@@ -18,6 +18,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  } from "@/components/ui/select"
 
 interface HierarchicalCategory extends Category {
   children: HierarchicalCategory[];
@@ -128,7 +137,6 @@ const CategoriesPage = () => {
         return;
     }
     try {
-        // Assuming updateCategory is flexible enough to only update the name
         const category = flatCategories.find(c => c.id === categoryId);
         if (!category) return;
 
@@ -216,44 +224,44 @@ const CategoriesPage = () => {
       <div key={category.id} style={{ marginLeft: `${category.level * 20}px` }} className="group">
         <div className="flex items-center justify-between p-2 border-b">
           {isEditing ? (
-            <input
+            <Input
               type="text"
               value={editingCategoryName}
               onChange={(e) => setEditingCategoryName(e.target.value)}
-              className="flex-grow mr-2 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="flex-grow mr-2"
               autoFocus
             />
           ) : (
             <span>{category.name}</span>
           )}
 
-          <div>
+          <div className='flex items-center'>
             {isEditing ? (
               <>
-                <button
+                <Button
                   onClick={() => handleSaveEdit(category.id)}
-                  className="text-green-500 hover:underline mr-2"
+                  variant='ghost'
                 >
                   Save
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleCancelEdit}
-                  className="text-gray-500 hover:underline"
+                  variant='ghost'
                 >
                   Cancel
-                </button>
+                </Button>
               </>
             ) : (
               <>
-                <button
+                <Button
                   onClick={() => handleStartEdit(category)}
-                  className="text-blue-500 hover:underline mr-2"
+                  variant='ghost'
                 >
                   Edit
-                </button>
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <button className="text-red-500 hover:underline">Delete</button>
+                    <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-destructive/10">Delete</Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
@@ -282,96 +290,105 @@ const CategoriesPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="bg-white shadow rounded-lg p-4 mb-6">
-        <h2 className="text-xl font-bold mb-4">Category Settings</h2>
-        <div>
-            <div className="flex items-center">
-                <label htmlFor="maxDepth" className="block text-sm font-medium text-gray-700 mr-2">Max Category Depth</label>
-                <input
-                    type="number"
-                    id="maxDepth"
-                    value={newMaxDepth}
-                    onChange={(e) => {
-                        setSettingsError(null);
-                        setNewMaxDepth(parseInt(e.target.value, 10));
-                    }}
-                    className="w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                />
-                <Button
-                    onClick={handleUpdateSettings}
-                    disabled={isSaving || showSuccess}
-                    className="ml-4"
-                >
-                    {isSaving ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-                    ) : showSuccess ? (
-                        <><Check className="mr-2 h-4 w-4" /> Saved!</>
-                    ) : (
-                        'Save Settings'
+    <div>
+        <Card className="mb-6">
+            <CardHeader>
+                <CardTitle>Category Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div>
+                    <div className="flex items-center">
+                        <label htmlFor="maxDepth" className="block text-sm font-medium mr-2">Max Category Depth</label>
+                        <Input
+                            type="number"
+                            id="maxDepth"
+                            value={newMaxDepth}
+                            onChange={(e) => {
+                                setSettingsError(null);
+                                setNewMaxDepth(parseInt(e.target.value, 10));
+                            }}
+                            className="w-20"
+                        />
+                        <Button
+                            onClick={handleUpdateSettings}
+                            disabled={isSaving || showSuccess}
+                            className="ml-4"
+                        >
+                            {isSaving ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                            ) : showSuccess ? (
+                                <><Check className="mr-2 h-4 w-4" /> Saved!</>
+                            ) : (
+                                'Save Settings'
+                            )}
+                        </Button>
+                    </div>
+                    {settingsError && (
+                        <p className="mt-2 text-sm text-red-600">{settingsError}</p>
                     )}
-                </Button>
-            </div>
-            {settingsError && (
-                <p className="mt-2 text-sm text-red-600">{settingsError}</p>
-            )}
-        </div>
-      </div>
-
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Manage Categories</h1>
-        <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-            {showCreateForm ? 'Cancel' : 'Add New Category'}
-        </button>
-      </div>
+                </div>
+            </CardContent>
+        </Card>
 
       {showCreateForm && (
-        <div className="bg-white shadow rounded-lg p-4 mb-4">
-          <form onSubmit={handleCreateCategory}>
-            <div className="mb-4">
-              <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700">Category Name</label>
-              <input
-                type="text"
-                id="categoryName"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="parentCategory" className="block text-sm font-medium text-gray-700">Parent Category</label>
-              <select
-                id="parentCategory"
-                value={newCategoryParent || ''}
-                onChange={(e) => setNewCategoryParent(e.target.value || null)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        <Card className="mb-4">
+            <CardHeader>
+                <CardTitle>Create New Category</CardTitle>
+            </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateCategory}>
+              <div className="mb-4">
+                <label htmlFor="categoryName" className="block text-sm font-medium mb-1">Category Name</label>
+                <Input
+                  type="text"
+                  id="categoryName"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="parentCategory" className="block text-sm font-medium mb-1">Parent Category</label>
+                <Select onValueChange={(value) => setNewCategoryParent(value === "null" ? null : value)} value={newCategoryParent || 'null'}>
+                    <SelectTrigger>
+                    <SelectValue placeholder="None (Top Level)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                    <SelectItem value="null">None (Top Level)</SelectItem>
+                    {filteredCategoryList.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                        {' '.repeat(cat.level * 4)}
+                        {cat.name}
+                        </SelectItem>
+                    ))}
+                    </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="submit"
+                disabled={!newCategoryName.trim()}
               >
-                <option value="">None (Top Level)</option>
-                {filteredCategoryList.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {'\u00A0'.repeat(cat.level * 4)}
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              disabled={!newCategoryName.trim()}
-            >
-              Create Category
-            </button>
-          </form>
-        </div>
+                Create Category
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="bg-white shadow rounded-lg">
-        {hierarchicalCategories.map(renderCategory)}
-      </div>
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle>Manage Categories</CardTitle>
+                    <Button
+                        onClick={() => setShowCreateForm(!showCreateForm)}
+                    >
+                        {showCreateForm ? 'Cancel' : 'Add New Category'}
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {hierarchicalCategories.map(renderCategory)}
+            </CardContent>
+        </Card>
     </div>
   );
 };

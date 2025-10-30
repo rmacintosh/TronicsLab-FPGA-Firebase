@@ -90,7 +90,7 @@ export default function CommentsPage() {
                     <TableCell className="text-right">
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
+                        <Button variant="destructive" size="sm" className="hover:bg-destructive/90">
                             Delete
                         </Button>
                         </AlertDialogTrigger>
