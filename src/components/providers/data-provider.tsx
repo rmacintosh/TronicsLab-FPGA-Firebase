@@ -44,7 +44,7 @@ interface DataContextType {
     createArticle: (article: NewArticleData) => Promise<{ success: boolean; message: string; slug?: string; }>;
     updateArticle: (articleId: string, article: Partial<Article>) => Promise<{ success: boolean; message: string; slug?: string; }>;
     deleteArticle: (articleId: string) => Promise<{ success: boolean; message: string; }>;
-    createCategory: (name: string, parentId: string | null) => Promise<{ success: boolean; message: string; id?: string }>;
+    createCategory: (name: string, parentId: string | null, icon?: string) => Promise<{ success: boolean; message: string; id?: string }>;
     updateCategory: (categoryId: string, newName: string, newParentId: string | null) => Promise<{ success: boolean; message: string; }>;
     deleteCategory: (categoryId: string, newParentIdForChildren: string | null) => Promise<{ success: boolean; message: string; }>;
     getCategorySettings: () => Promise<{ success: boolean; settings?: CategorySettings; message?: string; }>;
@@ -143,14 +143,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return await deleteCommentAction(token, commentId);
     };
   
-    const createCategory = async (name: string, parentId: string | null) => {
+    const createCategory = async (name: string, parentId: string | null, icon?: string) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
         if (!currentUser) {
             throw new Error("You must be logged in to create a category.");
         }
         const token = await currentUser.getIdToken();
-        return await createCategoryAction(token, name, parentId);
+        return await createCategoryAction(token, name, parentId, icon);
     };
 
     const updateCategory = async (categoryId: string, newName: string, newParentId: string | null) => {

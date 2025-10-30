@@ -43,6 +43,7 @@ const CategoriesPage = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('');
   const [newCategoryParent, setNewCategoryParent] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
@@ -106,7 +107,7 @@ const CategoriesPage = () => {
       return;
     }
     try {
-        const result = await createCategory(newCategoryName, newCategoryParent);
+        const result = await createCategory(newCategoryName, newCategoryParent, newCategoryIcon);
         if (result.success) {
             toast({ title: "Success", description: "Category created successfully." });
             setNewCategoryName('');
@@ -232,7 +233,10 @@ const CategoriesPage = () => {
               autoFocus
             />
           ) : (
-            <span>{category.name}</span>
+             <div className="flex items-center">
+              {category.icon && <i className={`lucide lucide-${category.icon} w-4 h-4 mr-2`} />} 
+              <span>{category.name}</span>
+            </div>
           )}
 
           <div className='flex items-center'>
@@ -344,6 +348,15 @@ const CategoriesPage = () => {
                   id="categoryName"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="categoryIcon" className="block text-sm font-medium mb-1">Category Icon</label>
+                <Input
+                  type="text"
+                  id="categoryIcon"
+                  value={newCategoryIcon}
+                  onChange={(e) => setNewCategoryIcon(e.target.value)}
                 />
               </div>
               <div className="mb-4">

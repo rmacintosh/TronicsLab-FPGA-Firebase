@@ -110,6 +110,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
       id: 'fpga-development',
       name: 'FPGA Development',
       slug: 'fpga-development',
+      icon: 'Cpu',
       parentId: null,
       description: 'Learn the fundamentals and advanced topics in FPGA design and development.',
     };
@@ -118,6 +119,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
       id: 'verilog-hdl',
       name: 'Verilog HDL',
       slug: 'verilog-hdl',
+      icon: 'BookOpen',
       parentId: cat_fpgaDev.id,
       description: 'Master the Verilog Hardware Description Language for digital design.',
     };
@@ -126,6 +128,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
       id: 'vhdl',
       name: 'VHDL',
       slug: 'vhdl',
+      icon: 'Binary',
       parentId: cat_fpgaDev.id,
       description: 'Explore the VHDL language for creating robust hardware systems.',
     };
@@ -134,6 +137,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
       id: 'fsm-design',
       name: 'FSM Design',
       slug: 'fsm-design',
+      icon: 'CircuitBoard',
       parentId: subcat_verilog.id,
       description: 'Dive deep into designing and implementing Finite State Machines.',
     };
@@ -490,7 +494,7 @@ async function getCategoryDepth(categoryId: string, db: Firestore): Promise<numb
     return depth;
 }
 
-export async function createCategoryAction(authToken: string, name: string, parentId: string | null) {
+export async function createCategoryAction(authToken: string, name: string, parentId: string | null, icon?: string) {
   if (!authToken) {
     return { success: false, message: 'Authentication required.' };
   }
@@ -516,7 +520,7 @@ export async function createCategoryAction(authToken: string, name: string, pare
         }
     }
 
-    const docRef = await adminFirestore.collection('categories').add({ name, parentId });
+    const docRef = await adminFirestore.collection('categories').add({ name, parentId, icon });
     revalidatePath('/admin/categories');
     return { success: true, message: 'Category created successfully.', id: docRef.id };
   } catch (error) {
@@ -542,7 +546,7 @@ const getAllDescendantIds = (categoryId: string, allCategories: Category[]): str
     return descendantIds;
 };
 
-export async function updateCategoryAction(authToken: string, categoryId: string, newName: string, newParentId: string | null) {
+export async function updateCategoryAction(authToken: string, categoryId: string, newName: string, newParentId: string | null, newIcon?: string) {
     if (!authToken) {
         return { success: false, message: 'Authentication required.' };
     }
@@ -570,7 +574,11 @@ export async function updateCategoryAction(authToken: string, categoryId: string
             }
 
             const categoryRef = adminFirestore.collection('categories').doc(categoryId);
-            transaction.update(categoryRef, { name: newName, parentId: newParentId });
+            const updateData: { [key: string]: any } = { name: newName, parentId: newParentId };
+            if (newIcon) {
+                updateData.icon = newIcon;
+            }
+            transaction.update(categoryRef, updateData);
         });
 
         revalidatePath('/admin/categories');
