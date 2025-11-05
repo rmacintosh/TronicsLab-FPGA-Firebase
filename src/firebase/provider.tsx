@@ -4,6 +4,7 @@ import React, { DependencyList, createContext, useContext, ReactNode, useMemo, u
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onIdTokenChanged, IdTokenResult } from 'firebase/auth';
+import { FirebaseStorage, getStorage } from 'firebase/storage'; // Import getStorage
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
 interface FirebaseProviderProps {
@@ -21,30 +22,32 @@ interface UserAuthState {
   userError: Error | null;
 }
 
-// Combined state for the Firebase context
+// --- ADD STORAGE TO CONTEXT STATE ---
 export interface FirebaseContextState {
   areServicesAvailable: boolean; 
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null; 
+  storage: FirebaseStorage | null; // Add storage
   user: User | null;
   claims: IdTokenResult | null;
   isUserLoading: boolean; 
   userError: Error | null; 
 }
 
-// Return type for useFirebase()
+// --- ADD STORAGE TO RETURN TYPE ---
 export interface FirebaseServicesAndUser {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
+  storage: FirebaseStorage; // Add storage
   user: User | null;
   claims: IdTokenResult | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
 
-// Return type for useUser()
+// Return type for useUser() - NO CHANGE
 export interface UserHookResult {
   user: User | null;
   claims: IdTokenResult | null;
@@ -64,16 +67,17 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firestore,
   auth,
 }) => {
+  // --- INITIALIZE STORAGE ---
+  const storage = useMemo(() => getStorage(firebaseApp), [firebaseApp]);
+
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
-    user: auth.currentUser, // Initialize with current user
+    user: auth.currentUser,
     claims: null,
-    isUserLoading: true, // Start loading until first auth event
+    isUserLoading: true,
     userError: null,
   });
 
-  // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
-    // Set loading to true on initial run
     setUserAuthState(current => ({ ...current, isUserLoading: true, userError: null }));
 
     const unsubscribe = onIdTokenChanged(
@@ -97,23 +101,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     );
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [auth]); // Re-run effect if the auth instance changes
+  }, [auth]);
 
-  // Memoize the context value to prevent unnecessary re-renders
+  // --- ADD STORAGE TO CONTEXT VALUE ---
   const contextValue = useMemo((): FirebaseContextState => {
     return {
-      areServicesAvailable: !!(firebaseApp && firestore && auth),
+      areServicesAvailable: !!(firebaseApp && firestore && auth && storage), // Add storage check
       firebaseApp,
       firestore,
       auth,
+      storage, // Add storage
       user: userAuthState.user,
       claims: userAuthState.claims,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
     };
-  }, [firebaseApp, firestore, auth, userAuthState]);
+  }, [firebaseApp, firestore, auth, storage, userAuthState]); // Add storage to dependency array
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -125,7 +129,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
 /**
  * Hook to access core Firebase services and user authentication state.
- * Throws error if core services are not available or used outside provider.
  */
 export const useFirebase = (): FirebaseServicesAndUser => {
   const context = useContext(FirebaseContext);
@@ -134,7 +137,7 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     throw new Error('useFirebase must be used within a FirebaseProvider.');
   }
 
-  if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth) {
+  if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth || !context.storage) { // Add storage check
     throw new Error('Firebase core services not available. Check FirebaseProvider props.');
   }
 
@@ -142,6 +145,7 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     firebaseApp: context.firebaseApp,
     firestore: context.firestore,
     auth: context.auth,
+    storage: context.storage, // Add storage
     user: context.user,
     claims: context.claims,
     isUserLoading: context.isUserLoading,
@@ -159,6 +163,13 @@ export const useAuth = (): Auth => {
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   return firestore;
+};
+
+// --- ADD useStorage HOOK ---
+/** Hook to access Firebase Storage instance. */
+export const useStorage = (): FirebaseStorage => {
+  const { storage } = useFirebase();
+  return storage;
 };
 
 /** Hook to access Firebase App instance. */
@@ -180,8 +191,6 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
 
 /**
  * Hook specifically for accessing the authenticated user's state.
- * This provides the User object, loading status, and any auth errors.
- * @returns {UserHookResult} Object with user, claims, isUserLoading, userError.
  */
 export const useUser = (): UserHookResult => { 
   const context = useContext(FirebaseContext);

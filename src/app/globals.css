@@ -87,3 +87,60 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom Tiptap Table Styles */
+.prose table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 2rem 0;
+  overflow: hidden;
+}
+
+.prose table td,
+.prose table th {
+  min-width: 1em;
+  border: 1px solid hsl(var(--border));
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.prose th p,
+.prose td p {
+  margin: 0;
+}
+
+.prose th {
+  font-weight: bold;
+  text-align: left;
+  background-color: hsl(var(--secondary));
+}
+
+/* For resize handle */
+.column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background-color: hsl(var(--ring));
+  pointer-events: none;
+}
+
+/* For cell selection */
+.prose .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: hsla(var(--primary), 0.2);
+  pointer-events: none;
+}

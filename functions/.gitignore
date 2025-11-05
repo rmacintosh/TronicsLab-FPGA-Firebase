@@ -1,0 +1,15 @@
+# Dependencies
+/node_modules
+
+# Build output
+/lib
+
+# Firebase
+.firebase
+firebase-debug.log
+firebase-debug.*.log
+.runtimeconfig.json
+
+# Other
+*.log
+.DS_Store

@@ -2,7 +2,17 @@
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { CustomImage } from './custom-image';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import TextAlign from '@tiptap/extension-text-align';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import CodeBlock from '@tiptap/extension-code-block';
 import { Toolbar } from './toolbar';
+import { useEffect } from 'react';
 
 const TiptapEditor = ({
   content,
@@ -13,12 +23,30 @@ const TiptapEditor = ({
 }) => {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        codeBlock: false, // Disable default to use custom below
+      }),
+      CustomImage, // Your custom image extension
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      CodeBlock,
     ],
-    content: content,
+    content: '', 
     editorProps: {
       attributes: {
-        class: 'prose dark:prose-invert prose-sm sm:prose-base lg:prose-lg xl:prose-2xl m-5 focus:outline-none border border-gray-300 rounded-md p-2 min-h-[200px]',
+        class: 'prose dark:prose-invert w-full max-w-none prose-sm sm:prose-base lg:prose-lg xl:prose-2xl focus:outline-none border border-gray-300 rounded-md p-2 min-h-[200px]',
       },
     },
     immediatelyRender: false,
@@ -27,8 +55,14 @@ const TiptapEditor = ({
     },
   });
 
+  useEffect(() => {
+    if (editor && content && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 w-full">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
     </div>
