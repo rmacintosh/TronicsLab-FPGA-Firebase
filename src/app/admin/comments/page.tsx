@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 export default function CommentsPage() {
   const { comments, userRoles, refreshData, deleteComment } = useData();
@@ -77,38 +78,42 @@ export default function CommentsPage() {
               <TableHead>Comment</TableHead>
               <TableHead>Author</TableHead>
               <TableHead>Article</TableHead>
-              {canModerate && <TableHead className="text-right">Actions</TableHead>}
+              {canModerate && <TableHead className="text-center">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {comments.map((comment) => (
               <TableRow key={comment.id}>
-                <TableCell className="font-medium">{comment.comment}</TableCell>
+                <TableCell className="font-medium">
+                    <TruncatedText text={comment.comment} title={`Comment by ${comment.authorName}`} />
+                </TableCell>
                 <TableCell>{comment.authorName}</TableCell>
                 <TableCell>{comment.articleTitle}</TableCell>
                 {canModerate && (
-                    <TableCell className="text-right">
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="hover:bg-destructive/90">
-                            Delete
-                        </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the comment.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(comment.id)}>
-                            Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <TableCell className="text-center">
+                        <div className="flex justify-end gap-2">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="xs" className="w-16">
+                                    Delete
+                                </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the comment.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(comment.id)}>
+                                    Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </TableCell>
                 )}
               </TableRow>

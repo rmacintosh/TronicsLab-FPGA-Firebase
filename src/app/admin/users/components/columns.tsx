@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import { ColumnDef } from "@tanstack/react-table";
 import { User } from "@/lib/server-types";
@@ -7,7 +6,7 @@ import { CellAction } from "./cell-action";
 
 export const columns: ColumnDef<User>[] = [
     {
-        accessorKey: "name",
+        accessorKey: "displayName", // CORRECTED from "name"
         header: "Name",
     },
     {
@@ -24,6 +23,7 @@ export const columns: ColumnDef<User>[] = [
     },
     {
         id: "actions",
+        header: "Actions", // ADDED: Header for the actions column
         cell: ({ row }: { row: any }) => <CellAction data={row.original} />,
     },
 ];

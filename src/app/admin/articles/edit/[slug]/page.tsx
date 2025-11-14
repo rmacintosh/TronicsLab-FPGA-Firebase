@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Category, Article } from "@/lib/server-types";
 import { useMemo, useState, use, useEffect } from "react";
-import { updateArticleAction } from "@/app/actions";
+import { updateArticleAction } from "@/lib/actions/article.actions";
 import Image from 'next/image';
 import { X } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";

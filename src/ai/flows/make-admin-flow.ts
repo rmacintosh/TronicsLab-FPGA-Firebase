@@ -6,6 +6,7 @@
 
 import { z } from 'genkit';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import { getApps } from 'firebase-admin/app';
 import { ai } from '../genkit';
 import '@/firebase/admin'; // Ensure Firebase Admin is initialized
@@ -25,10 +26,8 @@ const makeAdminFlow = ai.defineFlow(
     outputSchema: MakeAdminOutputSchema,
   },
   async (_, sideChannel) => {
-    // The auth object is nested inside the context passed from the server action.
     const auth = sideChannel.context?.auth as any;
 
-    // The 'auth' object will be null or undefined if no valid token is provided.
     if (!auth || !auth.uid) {
       return {
         success: false,
@@ -38,7 +37,6 @@ const makeAdminFlow = ai.defineFlow(
 
     const callingUid = auth.uid;
 
-    // Get the initialized admin app. The import '@/firebase/admin' should have handled initialization.
     const adminApp = getApps()[0];
     if (!adminApp) {
         return {
@@ -47,8 +45,8 @@ const makeAdminFlow = ai.defineFlow(
         };
     }
     const adminAuth = getAuth(adminApp);
+    const adminFirestore = getFirestore(adminApp);
 
-    // Security Check: Check if any admin users already exist.
     try {
       const listUsersResult = await adminAuth.listUsers(1000);
       const adminExists = listUsersResult.users.some(user => !!user.customClaims?.admin);
@@ -64,18 +62,23 @@ const makeAdminFlow = ai.defineFlow(
       return { success: false, message: `Failed to verify existing users: ${error.message}` };
     }
 
-    // If security checks pass, grant admin privileges.
     try {
+      // Set the custom claim in Firebase Authentication
       await adminAuth.setCustomUserClaims(callingUid, { admin: true });
+
+      // Also, update the user's document in the Firestore database
+      const userDocRef = adminFirestore.collection('users').doc(callingUid);
+      await userDocRef.set({ roles: ['admin'] }, { merge: true });
+
       return {
         success: true,
         message: `Successfully granted admin privileges to user ${callingUid}.`,
       };
     } catch (error: any) {
-      console.error(`Failed to set custom claims for UID ${callingUid}:`, error);
+      console.error(`Failed to grant admin privileges for UID ${callingUid}:`, error);
       return {
         success: false,
-        message: `Failed to set custom claims: ${error.message}`,
+        message: `Failed to grant admin privileges: ${error.message}`,
       };
     }
   }

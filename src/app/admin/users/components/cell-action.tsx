@@ -44,7 +44,7 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
         if (result.success) {
             toast({
                 title: "User roles updated",
-                description: `Successfully updated roles for ${data.name}.`,
+                description: `Successfully updated roles for ${data.displayName}.`,
             });
             setManageRolesOpen(false);
         } else {
@@ -63,7 +63,7 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
         if (result.success) {
             toast({
                 title: "User deleted",
-                description: `Successfully deleted user ${data.name}.`
+                description: `Successfully deleted user ${result.name}.`
             });
             setDeleteDialogOpen(false);
         } else {
@@ -122,7 +122,7 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
 
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Manage Roles for {data.name}</DialogTitle>
+                            <DialogTitle>Manage Roles for {data.displayName}</DialogTitle>
                             <DialogDescription>
                                 Assign or remove roles for this user. Click save when you're done.
                             </DialogDescription>

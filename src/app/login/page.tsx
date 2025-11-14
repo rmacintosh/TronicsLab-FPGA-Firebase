@@ -1,137 +1,150 @@
-"use client";
+'use client'
 
-import Link from "next/link"
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Cpu } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { useToast } from "@/hooks/use-toast";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
-import { useAuth } from "@/firebase";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { useUser } from "@/firebase/provider";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { Input } from "@/components/ui/input"
+import Link from "next/link"
+import { useUser } from "@/firebase/provider"
+import { initiateEmailSignIn, initiateGoogleSignIn } from "@/firebase/non-blocking-login"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import {
+  getAuth,
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
+  signInWithEmailAndPassword,
+  OAuthCredential
+} from "firebase/auth"
 
-
-const loginSchema = z.object({
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-});
+const formSchema = z.object({
+  email: z.string().email({
+    message: "Please enter a valid email address.",
+  }),
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
+  }),
+})
 
 export default function LoginPage() {
-  const auth = useAuth();
-  const { toast } = useToast();
+  const { user, isUserLoading: isLoading } = useUser();
   const router = useRouter();
-  const { user } = useUser();
 
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.push('/');
+    }
+  }, [user, isLoading, router]);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
       password: "",
     },
-  });
+  })
 
-  useEffect(() => {
-    if (user) {
-      router.push('/');
-    }
-  }, [user, router]);
-
-  const onSubmit = async (values: z.infer<typeof loginSchema>) => {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
+      const auth = getAuth();
       await signInWithEmailAndPassword(auth, values.email, values.password);
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!",
-      });
-      router.push('/');
-    } catch (error: any) {
-      let description = "An unexpected error occurred.";
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        description = "Invalid email or password. Please try again.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: description,
-      });
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert(`Login failed. Please try again. Error: ${(error as Error).message}`);
     }
-  };
+  }
 
+  async function handleGoogleLogin() {
+    const auth = getAuth();
+    try {
+      await initiateGoogleSignIn(auth);
+    } catch (error: any) {
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        const pendingCred = error.credential as OAuthCredential;
+        const email = error.customData.email as string;
+        const methods = await fetchSignInMethodsForEmail(auth, email);
+
+        if (methods[0] === 'password') {
+          const password = prompt(
+            `You already have an account with ${email}. Please enter your password to link your Google account.`
+          );
+
+          if (password) {
+            try {
+              const userCredential = await signInWithEmailAndPassword(auth, email, password);
+              await linkWithCredential(userCredential.user, pendingCred);
+              alert("Successfully linked your Google account!");
+            } catch (linkError: any) {
+              console.error("Error linking account:", linkError);
+              alert(`Could not link accounts. Error: ${linkError.message}`);
+            }
+          }
+        } else {
+          alert(`An account already exists for ${email} using the provider: ${methods[0]}. Please sign in with that provider.`);
+        }
+      } else if (error.code !== 'auth/popup-closed-by-user') {
+        console.error("Google login failed:", error);
+        alert(`Google login failed. Error: ${error.message}`);
+      }
+    }
+  }
+
+  if (isLoading || user) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="mx-auto max-w-sm w-full">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
-              <Link href="/" className="flex items-center gap-2 text-foreground">
-                  <Cpu className="h-8 w-8 text-primary" />
-                  <span className="font-headline text-2xl font-semibold">TronicsLab</span>
-              </Link>
-          </div>
-          <CardTitle className="text-2xl font-headline">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <Card className="w-full max-w-md mx-4">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold tracking-tight">Login</CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="m@example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                            <FormItem>
-                                <div className="flex items-center">
-                                    <FormLabel>Password</FormLabel>
-                                    <Link
-                                      href="#"
-                                      className="ml-auto inline-block text-sm underline"
-                                    >
-                                      Forgot your password?
-                                    </Link>
-                                </div>
-                                <FormControl>
-                                    <Input type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <Button type="submit" className="w-full">
-                      Login
-                    </Button>
-                    <Button variant="outline" className="w-full" disabled>
-                      Login with GitHub
-                    </Button>
-                </form>
-            </Form>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="name@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center">
+                      <FormLabel>Password</FormLabel>
+                      <Link href="#" className="ml-auto inline-block text-sm underline">
+                        Forgot your password?
+                      </Link>
+                    </div>
+                    <FormControl>
+                      <Input type="password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full">
+                Login
+              </Button>
+              <Button variant="outline" type="button" className="w-full" onClick={handleGoogleLogin}>
+                Login with Google
+              </Button>
+            </form>
+          </Form>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="underline">

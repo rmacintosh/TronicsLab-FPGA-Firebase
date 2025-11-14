@@ -1,0 +1,116 @@
+Fetching documents from the 'images' collection...
+--- Documents in 'images' collection ---
+Document ID: 2VM3rcUKRCtJeRlEWXRj
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018117, _nanoseconds: 846000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/2VM3rcUKRCtJeRlEWXRj/fpga-basics.png',
+  articleId: 'r4iGVnmWxVdnXUr3VEUm',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/2VM3rcUKRCtJeRlEWXRj/fpga-basics.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=d1pyLQum9ac8NlRtWvIdh26bhNLflKw4Nelvg%2F7Der2zHUxtvNDsj3a7KZ9LKMIETFsxrkgmfQl95gwQuOsVyix3XYps1rZiDia%2BWlsrug4f3%2Fr4BnWlzpbag4IhNZsKajkuMCuPlBkNiNs3GaFEgcuacb4tYc%2FdLPGtlpT1F09NtdMwXXiynKHEZPlfvLIuoMrEMIcSE9BbaW2Sjf%2BEH5y9GrmGK75TYLjZxHSHK3aSl8lg6vrPuV7W2xTh%2BR3MHL7fowPF%2FUsXh8g%2FOQrYuoUm6ozcxVv%2B7%2B5uHUa6RCeNbSfZNRi4NiPCnU%2BONeV4iRScs%2FAcxyUtvdRIULE6Iw%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/2VM3rcUKRCtJeRlEWXRj/fpga-basics_thumb.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=PrubwIpKMv2ep%2FH5HwOw3b5EKBQQUkd9Z7Vxyv0KnRORyU61n2PDYsFA22t9rgvu2NsVCaTT7D%2BSH%2FB9rDBS8EwtDoEkowPkrOZpLUyYHmNrNKTKP5jlXT%2FHnw7GdQzrs56LOAXRjbcHv6wnkyEo8lwChQ80w%2BpVonk6QBEl%2F6rkBsGUG3pyWIClGwEhz18pvhovat88is78PZ2y6hlv%2FgspbjbOSrT4dnBgfydLZjScPCxeM%2BdJ17gekOsfgnQOewhm5b%2FIeywFJwCkmViOWLdjI6GVgcaIF3wpCBSHyKJuF%2BD9BjrarCfgJxP6PLM%2BOeuVGqEr%2BdLFHqSwE5ScDQ%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/2VM3rcUKRCtJeRlEWXRj/fpga-basics.png',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/2VM3rcUKRCtJeRlEWXRj/fpga-basics_thumb.png'
+  }
+}
+---
+Document ID: Iqe1wT1uIaCUpgKUWqko
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018117, _nanoseconds: 922000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/Iqe1wT1uIaCUpgKUWqko/image.jpg',
+  articleId: 'va7KSe5Si6TpP9tljzZM',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/Iqe1wT1uIaCUpgKUWqko/image.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=WLPJTR%2BUk4Cl2Yah0q2ghTm3AZSIEyXcsgLNorIHCda2DsxTaUU9k0jRp5DTYyQr2oE9lJ%2B7fSveYmUrvz7S6gVO7EM1Vj6Vno%2FmQm03Ugn%2B%2FDwwzprm28GcWpfDlczsfnGJkcWFd8ZlD8Zq3ol%2FW3ZDGH2F98XrjvUIzX1Z9tiGuxOfXI2B2AKfYZ7V581DsHnRuI8wEL7Qan2okm%2BJa%2BMUxOJY8LYqvTYtIdsiw%2B3MIrM%2BtaoSRL%2BbKASK5DDJAH2e8NlmUZ3pJ0Yla9f6Dw90E%2BEqbfhHzvYjqvHeSxM1ZnRkeG8JyjI4nqeLfLpSI1ZCmsyEXX74tAsWm4KnZw%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/Iqe1wT1uIaCUpgKUWqko/image_thumb.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=fYbU%2FXbZwKPiWYaFDfco6%2Fvutfv4ZR2RisCLwr%2F5vpTWKNRHJoXklgFBpK9sZoVsL69BNHSBQQDG33q%2Bw4WGz3xg3cZToH1bghcunJgLsgbF7famz3RbXxTmVFiuj6af%2Fo3lZniiVSuvj4f1hbz44rg9KeCReE726jDcYtUxsckxbQVLIB20%2F6SpfiNQifK9L1aSLi2p%2BlIek7Qr79iC5JA1lsOB61pYsGPxfm3DrB4QzrVnG71qvd1%2B6YtHnpu5EY5QAZZSAtoBj7j%2BQciSvQ0I7S5zeX9fiyJ0YzhRP8SsEbEIedl3kHKtfi6OFWBLhMUXNpvUteGxRKXAveJdMA%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/Iqe1wT1uIaCUpgKUWqko/image.jpg',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/Iqe1wT1uIaCUpgKUWqko/image_thumb.jpg'
+  }
+}
+---
+Document ID: hAicqoK8dJFlESviaCTC
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018117, _nanoseconds: 949000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/hAicqoK8dJFlESviaCTC/image.jpg',
+  articleId: 'ipAtAZiSlA6TJYalWfpl',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/hAicqoK8dJFlESviaCTC/image.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=S7o86hp%2B9IKlAQbR6%2FbM%2BiTam6VRNmnbWA9wvYI4SeHQ%2FbgbRyLEKB8Nhxs5rGfmPR27Pm%2FmhbPqzIsL72X%2BfBMuv8HvalAXAcVh%2BqXyTyQDET%2F3UTZ3K56a%2FbHhcPFzgv7ExmYspCQoaEW1M%2B8FwCcWHjxA3pXkhBg4TlgsFdGkO00IEWcqXHIR8cnmKd3yPTFHCygDWbwK9QIXvP2MUeCVZL1khsX3xvDA4MavPy2ExMKer7oUMXtPKf2BaVXv3HVME1t5m6okN7683tbYYnEctkxToSIlEGjdXcCT0eBFj7glR31B5HWH7LMfjpm58IKiWDxec8Kv1%2BQg8mSTRA%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/hAicqoK8dJFlESviaCTC/image_thumb.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=alCpIWRmIglCTTx34WsxQpfCXo7EAoAAfsL8GAxTO2OBxrqie3LIukYwUjpE9DQBMu9ev6NQrRV6DO7RPAQrFR71nMYNfG2tOgL31i%2FHjwjk77H4ACGZp9iGDVcHEgi1A6aV1VIlN8vjVhFKaxFXqcHGb8MkAom1O%2B3kGsrBp%2Bdxa8ReUmb1XtcQ5NkH0CaSD60ccJ73gJT5qjwn9mconGZO0%2B2CDB5tRyh7k6w4IQOa2nuTkPAeFn%2BJXU5ksdunzoBgcWVsim0E8ugbs0IxspKRN6nkGNZvEIr63HsEP9zBG7zT%2BmAvqH6j0nYw3nBtOsOWhx8E8XVXUyvKwaJbqQ%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/hAicqoK8dJFlESviaCTC/image.jpg',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/hAicqoK8dJFlESviaCTC/image_thumb.jpg'
+  }
+}
+---
+Document ID: mEg9Jynvh3TPOCDfBmgq
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018117, _nanoseconds: 919000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/mEg9Jynvh3TPOCDfBmgq/image.jpg',
+  articleId: 'XuaYLpwibs1N8TzGTXHj',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/mEg9Jynvh3TPOCDfBmgq/image.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=RwgHokCJDO%2Fc3h1Q%2F1gYrAELnWmuCczeMKgK4AqbfivObZ%2BhZ6DEN48RBOuUmVmzV%2FIckBg3GpWPafrH2pZZOCphKWGcLlM3AhEHDIpAyZLBVefNbAy1CkAC8GSYFj0LK3g8DUHJU2JR0Oc6By%2FHNIxJPboJl9PMZSirrnvTq%2BWHWwUyjuXngXkH8IXOXmCRmyZH9gGzc3wGbAJub4fqKmm7AE2%2B1dI1KB5o3a%2F1UWYGh9vZFQ%2B6gUX18Cp0G4Wq3uy9rz25naVCfGixtW93QGtyrAypOxRl9%2FgmsuYAhMxlvjOIYnhx3JUaMwEEtCFe%2BCiOPXWYd9NN4piU30lmmw%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/mEg9Jynvh3TPOCDfBmgq/image_thumb.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=LO32s0Z0AagqULzMlf2rfRbANkUqT0%2FRnEizVt1sg9eK8fulR8AcMIc%2BmNUdS%2FPiCsdiQ7hvsOy1P8i5uSDjiQUs5b4vtXH6INRoiGWsNReZZNJyP99ex6Ets93ldXKCcachUgWLJpynl7waOu4v89x3VIK%2FGLgueIv1NaNQ5LuuWQYLJVyeXBt9goA9CI4pcSq52DsDPyJYBT93ysIYxjgRHd4i7Bnmn17NC%2BtPr9hBx1hBXe1OteR92B6yPsJMBd6iLR27u9zJMplb2i97LYi%2FDlxfXZQ5H%2Bhh%2Fjl%2BqBnOkr7kQatx59UyMQgs%2F6yXWQQiHQ%2BUn%2BIQjLB9KUtzGg%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/mEg9Jynvh3TPOCDfBmgq/image.jpg',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/mEg9Jynvh3TPOCDfBmgq/image_thumb.jpg'
+  }
+}
+---
+Document ID: pRPkXxZKozKZld6BvnXt
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018117, _nanoseconds: 937000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/pRPkXxZKozKZld6BvnXt/image.jpg',
+  articleId: 'Nf2uGo35rulLotvcxtDW',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/pRPkXxZKozKZld6BvnXt/image.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=b572dklox1o%2FGksWcJes8t2f7OGPUMxoptYNonJW4eL5sIOL86INnGq4YC6Kzz8qvThV4%2BZmV6UdJ1ToCf2lgk9mZMKutBJNsmwGIKoPOraMsU2rh8YTQnQx5Or6rcjshT04PklKPlASrOxmiE%2Bl0cYWbg7veTBW5cDKDBA7Fbnyic19ZwKYtBt1%2F8Y1c5SoOg7Jfw%2Bsodmp1u5Q60iYdaHfHuGhigknZjFtj3g3sgfWhge83lrW5EyGb578vBs7%2BffZze8eCcmsK160ydVjy3R63HbtcejPWELdYF2zrJwbMs4JPKYihrKx9RrZLkN2fI20aff83uD%2BdVPKJvG7Ng%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/pRPkXxZKozKZld6BvnXt/image_thumb.jpg?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=bC39wig5I%2BLpE%2Bbb06pdPcQC%2F7DPehwL7ekYLdhNJ3mD1RbIoIeV0w%2B801rwafvYA0ea%2BvCKndk1nBSNqIegS09cBZQwP80BIzk%2BQG%2FQ9dKexfOjij%2BfUEYS5mOtCE9fr42bCeeDqo5BTgM3CrSQqJzUXLEUqizmNKigfiN4WvqDHgiykZ6k7XUq8o1tEP4M5s0BE30GVMs0uYwJQoBhiU8lGYrbFOkUlGr4eSUweIQk4Hd3LUe06ik7g3oyFCvwA7bNeEgzlEf3cncsepQO4UTVGMiob22LXTTVscqz5ygbzK%2Fv%2FXosdJBKSpU6bAUBiMl8e%2BRxP8gh78EDOCmXJQ%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/pRPkXxZKozKZld6BvnXt/image.jpg',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/pRPkXxZKozKZld6BvnXt/image_thumb.jpg'
+  }
+}
+---
+Document ID: toVHGplaBbj8bCA9KXZW
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018119, _nanoseconds: 593000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world.png',
+  articleId: 'tIzzwMOXwoyPoQdzbZ3L',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=SjGeQqGiQVPfr%2Fu49XhSnl%2Bo2kDyqULV1bDmQJcTyh%2FTroUsej8r%2Bx%2FOsLsd5irMX%2B087LnZ2alTavIh1zpYqQxNLB%2BbU9hHFRXYHA494fJk5WtdlzTTNXScL0bdc04Jm2WRX0UMtFfzzuvKVl%2BbYZUsiXms2LnojhQyamBJknkxIw8F2VQIOK6zAMfbNAQPEnzQpk1InD9RYUAtyvLWR6SvcyI%2B43m04A0QFFW%2Bs%2Ba%2Bi6a4fV1BudJEFy7XzkHQ2sIo6glnunQQCRVebZUHvGu8uvH4fH%2BSWDRZECEsos6cs3lwLfECwJZPfDH5absQpASVJnxf3O8eVTDONBluMA%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world_thumb.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=UIO4%2Bg2hdhf%2Fe2R2XHAzB140VsHHOV25W7ByfKIYrcRsEOojW6T2jaCBSs5GLFCvZXZ2iq1LD0TPtv%2BDgOphczd5YdW4Yfd1VZ%2B9jv9LP3ZwBydukAhoWSarTlulhL2uR1uNbi1oasCsegVf0AoCztKi1HSah850xZSXTQtRRFv%2FvqgS7RlFEC%2FfTa%2BpNvNDtTSsTPzC45G%2FF3V%2BCYyGO33KGcPJAC%2BuSLpsrW7UGAtzd4kPORGCgpxvvXUFSSnI65BuQBZGmTxloB3cJskRUPesp%2Bu3%2FBrJhetvdi5OvrB5WSnZdNQHgta7Q6X2XTlG8GjrR5lz%2BBT9HUkeVJ48Gg%3D%3D',
+    mediumUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world_medium.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=Jl9cS%2F5bzAXHSjTpAQvV8HFiKxiiYrjAJvvAzOAggqrT4IAs4Mskk8%2BvaIMVd40ymt04elM%2FROjzJw4K1Kd0vcwWtjTRwloi4RgxXxj37JfWneFu5WxMY0aSqWRxd0rS9u%2B05By%2B0hCZqLjr5Rtu2S8izJBX5Ed8mi2JHu%2FMkK2Psj1xH5XugmjZ5qOFyZSAHN3WuP39f2ulqzmkq5ku%2BZoQHvDB7BIxJlGqQZgFaF%2FWosEbE5JORaLp4CsDdT3eB9juh9tu9TqAwIWh%2FwMg0fTlISZXKtv3YGpAD3YZ%2BAb03OuzpJmTlN8W8LxEHOj8%2B7ouAHJfkDIiz807P1e%2BPg%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world.png',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world_thumb.png',
+    medium: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/toVHGplaBbj8bCA9KXZW/verilog-hello-world_medium.png'
+  }
+}
+---
+Document ID: vAOVGOLQSartYueBClgq
+Document Data: {
+  authorId: 'KrNPOaQsMqQEjAbb5czppoM60LL2',
+  createdAt: Timestamp { _seconds: 1763018117, _nanoseconds: 201000000 },
+  originalPath: 'images/temp/KrNPOaQsMqQEjAbb5czppoM60LL2/vAOVGOLQSartYueBClgq/advanced-fsm.png',
+  articleId: 'JJgaPrrIquqbEx7dSQhX',
+  permanentUrls: {
+    originalUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/vAOVGOLQSartYueBClgq/advanced-fsm.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=IstboEiVQXXjf82NQoSwSNCXBGQCaLmhoBk%2Frx7D4vD6ifZUaczx%2BjO9qV9gSYw2WFvwp9RLyaRKpcfEOe6jF7nQaY0Bq%2BtpISLZA%2BnykqTUXOVt%2B06ujROJB9ZVDfeeJ5nwXYT9djdzFMSJnJ5Z%2BERpY%2F7ckH4u%2Bl6hXcUHcMivOc5jg4damMNnwqFy4Un5tSrEkieLg321vSfVdnWX9Cy7rxB5D2iNuI5c1dDLaX6uf1X85naiwRCZ8Zt7qx%2FFiB8liZPDL0YDInLtPv%2BXUU%2F0n8uznZQJcwNUKmO6qiwEUHwoheSriDeCqLKGv8t7l%2B5ZsVPe9FSD4zK2QcagmA%3D%3D',
+    thumbUrl: 'https://storage.googleapis.com/studio-2360460009-16468.firebasestorage.app/images/KrNPOaQsMqQEjAbb5czppoM60LL2/vAOVGOLQSartYueBClgq/advanced-fsm_thumb.png?GoogleAccessId=firebase-adminsdk-fbsvc%40studio-2360460009-16468.iam.gserviceaccount.com&Expires=16447017600&Signature=OIGmd641N53StL4SvRQDwIxwtEm%2FLmoF9bGPt5GzoUHHPrgRfYzYxn8tFCAW9h7jV8Hp9iR%2FI%2BewAoSo145n3AqzHQQB41HgKhIiQVlc7rkhKoYiKIVPXcbvTTNjFTtmEGKrQbya72ZTIVmeNjhweG6sAXo2zBES2T9HW%2BLwWs6ehBxxad0BIzgbwQICHffHu7yBaVzl6%2FeTLBc6R2ldk%2BVaPXnhym1daDG3fsktbbvGZWPhiANGTf1W5VNUKz%2B6mVoNMXn2G66XvTHO4f7hmWnvFtk4EszO6Hp1cvWoIAl35h2GLn%2B8Ssq9xJLQ9AJQ67H235i55eutO3YBzg9fUg%3D%3D'
+  },
+  permanentPaths: {
+    original: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/vAOVGOLQSartYueBClgq/advanced-fsm.png',
+    thumb: 'images/KrNPOaQsMqQEjAbb5czppoM60LL2/vAOVGOLQSartYueBClgq/advanced-fsm_thumb.png'
+  }
+}
+---

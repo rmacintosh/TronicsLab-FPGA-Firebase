@@ -2,15 +2,18 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { collection, doc, DocumentData, QueryDocumentSnapshot, setDoc, SnapshotOptions, deleteDoc } from "firebase/firestore";
-import { useCollection, useDocument } from 'react-firebase-hooks/firestore';
+import { collection, DocumentData, QueryDocumentSnapshot, SnapshotOptions } from "firebase/firestore";
+import { useCollection } from 'react-firebase-hooks/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { getAuth } from 'firebase/auth';
-import { seedDatabaseAction, createArticleAction, deleteArticleAction, updateArticleAction, createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction, updateUserRolesAction, deleteUserAction, deleteCommentAction } from '@/app/actions';
+import { seedDatabaseAction } from '@/lib/actions/admin.actions';
+import { createArticleAction, deleteArticleAction, updateArticleAction } from '@/lib/actions/article.actions';
+import { createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction } from '@/lib/actions/category.actions';
+import { updateUserRolesAction, deleteUserAction } from '@/lib/actions/user.actions';
+import { deleteCommentAction } from '@/lib/actions/comment.actions';
 import { Article, Category, Comment, User, UserRole } from '@/lib/server-types';
 import { NewArticleData, FullArticle, FullComment } from '@/lib/types';
 
-// Generic converter to add the document ID to the object
 const idConverter = <T,>() => ({
     toFirestore: (data: T) => data as DocumentData,
     fromFirestore: (snapshot: QueryDocumentSnapshot, options: SnapshotOptions) => {
@@ -19,11 +22,11 @@ const idConverter = <T,>() => ({
     }
 });
 
-// Specific converter for the User type, which doesn't need a separate ID field
-const userConverter = <T,>() => ({
+const userConverter = <T extends { uid: string }>() => ({
     toFirestore: (data: T) => data as DocumentData,
     fromFirestore: (snapshot: QueryDocumentSnapshot, options: SnapshotOptions) => {
-        return snapshot.data(options) as T;
+        const data = snapshot.data(options);
+        return { ...data, uid: snapshot.id } as T;
     }
 });
 
@@ -34,7 +37,7 @@ interface CategorySettings {
 interface DataContextType {
     user: User | null;
     userRoles: UserRole[];
-    isAdmin: boolean; // <-- ADDED: Explicitly define isAdmin status
+    isAdmin: boolean;
     articles: FullArticle[];
     categories: Category[];
     comments: FullComment[];
@@ -50,7 +53,7 @@ interface DataContextType {
     getCategorySettings: () => Promise<{ success: boolean; settings?: CategorySettings; message?: string; }>;
     updateCategorySettings: (newSettings: Partial<CategorySettings>) => Promise<{ success: boolean; message: string; }>;
     updateUserRoles: (uid: string, roles: UserRole[]) => Promise<{ success: boolean; message: string; }>;
-    deleteUser: (uid: string) => Promise<{ success: boolean; message: string; }>;
+    deleteUser: (uid: string) => Promise<{ success: boolean; message: string; name?: string; }>;
     deleteComment: (commentId: string) => Promise<{ success: boolean; message: string; }>;
     refreshData: () => void;
 }
@@ -58,9 +61,37 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { firestore, user, claims, isUserLoading: isAuthLoading } = useFirebase(); // Renamed to avoid conflict
-    const userRoles = useMemo(() => (claims?.claims.roles || []) as UserRole[], [claims]);
-    const isAdmin = useMemo(() => userRoles.includes('admin'), [userRoles]); // <-- ADDED: Calculate isAdmin based on roles
+    const { firestore, user: authUser, isUserLoading: isAuthLoading, firestoreUser } = useFirebase();
+
+    const currentUser: User | null = useMemo(() => {
+        if (!authUser) {
+            return null;
+        }
+
+        const userProfile = {
+            uid: authUser.uid,
+            email: authUser.email || '',
+            displayName: authUser.displayName || 'Unnamed User',
+            photoURL: authUser.photoURL || '/default-avatar.png',
+        };
+
+        const userRoles = (firestoreUser?.roles || []) as UserRole[];
+
+        return {
+            ...userProfile,
+            roles: userRoles,
+        };
+    }, [authUser, firestoreUser]);
+
+    const { userRoles, isAdmin } = useMemo(() => {
+        if (!currentUser) {
+            return { userRoles: [], isAdmin: false };
+        }
+        const roles = currentUser.roles || [];
+        const isAdminResult = roles.includes('admin');
+        return { userRoles: roles, isAdmin: isAdminResult };
+    }, [currentUser]);
+
     const [refresh, setRefresh] = useState(0);
 
     const articlesCollection = useMemo(() => firestore ? collection(firestore, 'articles').withConverter<Article>(idConverter<Article>()) : null, [firestore, refresh]);
@@ -75,40 +106,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [usersSnapshot, usersLoading] = useCollection(usersCollection);
     const users = useMemo(() => usersSnapshot?.docs.map(doc => doc.data()) || [], [usersSnapshot]);
 
-    const userRef = useMemo(() => user ? doc(firestore!, 'users', user.uid).withConverter<User>(userConverter<User>()) : null, [firestore, user, refresh]);
-    const [userSnapshot, userLoading] = useDocument(userRef);
-    const userProfile = useMemo(() => userSnapshot?.data() || null, [userSnapshot]);
-
     const commentsCollection = useMemo(() => firestore ? collection(firestore, 'comments').withConverter<Comment>(idConverter<Comment>()) : null, [firestore, refresh]);
     const [commentsSnapshot, commentsLoading] = useCollection(commentsCollection);
     const comments = useMemo(() => commentsSnapshot?.docs.map(doc => doc.data()) || [], [commentsSnapshot]);
 
     const fullArticles = useMemo(() => {
         const categoryMap = new Map(categories.map(c => [c.id, c.name]));
-        const userMap = new Map(users.map(u => [u.uid, u.name]));
         return articles.map(article => ({
             ...article,
+            authorName: article.authorName || 'Unknown Author',
             categoryName: categoryMap.get(article.categoryId) || 'Unknown Category',
-            authorName: userMap.get(article.authorId) || 'Unknown Author',
         }));
-    }, [articles, categories, users]);
+    }, [articles, categories]);
 
-    const fullComments = useMemo(() => {
+    const fullComments: FullComment[] = useMemo(() => {
         const articleMap = new Map(articles.map(a => [a.id, a.title]));
-        const userMap = new Map(users.map(u => [u.uid, u.name]));
         return comments.map(comment => ({
             ...comment,
-            articleTitle: articleMap.get(comment.articleSlug) || 'Unknown Article',
-            authorName: userMap.get(comment.userId) || 'Unknown Author',
+            articleTitle: articleMap.get(comment.articleId) || 'Unknown Article',
+            authorName: comment.authorName || 'Unknown Author',
+            createdAt: (comment.createdAt as any).toDate().toISOString(),
         }));
-    }, [comments, articles, users]);
+    }, [comments, articles]);
     
     const createArticle = async (article: NewArticleData) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-          throw new Error("You must be logged in to create an article.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to create an article.");
         const token = await currentUser.getIdToken();
         return await createArticleAction(token, article);
     };
@@ -116,9 +140,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateArticle = async (articleId: string, article: Partial<Article>) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to update an article.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to update an article.");
         const token = await currentUser.getIdToken();
         return await updateArticleAction(token, articleId, article);
     };
@@ -126,9 +148,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const deleteArticle = async (articleId: string) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to delete an article.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to delete an article.");
         const token = await currentUser.getIdToken();
         return await deleteArticleAction(token, articleId);
     };
@@ -136,9 +156,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const deleteComment = async (commentId: string) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to delete a comment.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to delete a comment.");
         const token = await currentUser.getIdToken();
         return await deleteCommentAction(token, commentId);
     };
@@ -146,9 +164,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const createCategory = async (name: string, parentId: string | null, icon?: string) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to create a category.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to create a category.");
         const token = await currentUser.getIdToken();
         return await createCategoryAction(token, name, parentId, icon);
     };
@@ -156,9 +172,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateCategory = async (categoryId: string, newName: string, newParentId: string | null) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to update a category.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to update a category.");
         const token = await currentUser.getIdToken();
         return await updateCategoryAction(token, categoryId, newName, newParentId);
     };
@@ -166,9 +180,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const deleteCategory = async (categoryId: string, newParentIdForChildren: string | null) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to delete a category.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to delete a category.");
         const token = await currentUser.getIdToken();
         return await deleteCategoryAction(token, categoryId, newParentIdForChildren);
     };
@@ -176,9 +188,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const getCategorySettings = async () => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to get settings.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to get settings.");
         const token = await currentUser.getIdToken();
         return await getCategorySettingsAction(token);
     };
@@ -186,9 +196,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateCategorySettings = async (newSettings: Partial<CategorySettings>) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to update settings.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to update settings.");
         const token = await currentUser.getIdToken();
         return await updateCategorySettingsAction(token, newSettings);
     };
@@ -196,9 +204,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateUserRoles = async (uid: string, roles: UserRole[]) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to update user roles.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to update user roles.");
         const token = await currentUser.getIdToken();
         return await updateUserRolesAction(token, uid, roles);
     };
@@ -206,9 +212,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const deleteUser = async (uid: string) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            throw new Error("You must be logged in to delete a user.");
-        }
+        if (!currentUser) throw new Error("You must be logged in to delete a user.");
         const token = await currentUser.getIdToken();
         return await deleteUserAction(token, uid);
     };
@@ -216,9 +220,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const seedDatabase = async () => {
       const auth = getAuth();
       const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error("You must be logged in to seed the database.");
-      }
+      if (!currentUser) throw new Error("You must be logged in to seed the database.");
       const token = await currentUser.getIdToken();
       const result = await seedDatabaseAction(token);
       if (!result.success) {
@@ -231,14 +233,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const value: DataContextType = {
-        user: userProfile,
+        user: currentUser,
         userRoles,
-        isAdmin, // <-- ADDED: Provide isAdmin in the context
+        isAdmin,
         articles: fullArticles,
         categories,
         comments: fullComments,
         users,
-        isLoading: isAuthLoading || articlesLoading || categoriesLoading || userLoading || commentsLoading,
+        isLoading: isAuthLoading || articlesLoading || categoriesLoading || usersLoading || commentsLoading,
         seedDatabase,
         createArticle,
         updateArticle,

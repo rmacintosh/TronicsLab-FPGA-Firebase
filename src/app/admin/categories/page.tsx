@@ -245,42 +245,48 @@ const CategoriesPage = () => {
                 <Button
                   onClick={() => handleSaveEdit(category.id)}
                   variant='ghost'
+                  size='sm'
+                  className="mr-2 w-16"
                 >
                   Save
                 </Button>
                 <Button
                   onClick={handleCancelEdit}
                   variant='ghost'
+                  size='sm'
+                  className="w-16"
                 >
                   Cancel
                 </Button>
               </>
             ) : (
-              <>
-                <Button
-                  onClick={() => handleStartEdit(category)}
-                  variant='ghost'
-                >
-                  Edit
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-destructive/10">Delete</Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the category &quot;{category.name}&quot; and move all its children to the top level.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(category.id)}>Continue</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
+                <div className="flex justify-end gap-2">
+                    <Button
+                    onClick={() => handleStartEdit(category)}
+                    variant='outline'
+                    size='xs'
+                    className="w-16"
+                    >
+                    Edit
+                    </Button>
+                    <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size='xs' className="w-16">Delete</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the category &quot;{category.name}&quot; and move all its children to the top level.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(category.id)}>Continue</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                    </AlertDialog>
+                </div>
             )}
           </div>
         </div>

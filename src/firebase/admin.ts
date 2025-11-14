@@ -1,9 +1,10 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import admin from 'firebase-admin';
 
 if (!getApps().length) {
   initializeApp({
-    projectId: 'studio-2360460009-16468',
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
   });
 }
 

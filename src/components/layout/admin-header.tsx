@@ -25,7 +25,7 @@ export function AdminHeader() {
             <Button
               variant="ghost"
               className={cn(
-                "rounded-none border-b-2 border-transparent hover:bg-transparent hover:border-primary",
+                "rounded-none border-b-2 border-transparent hover:bg-muted hover:border-primary",
                 pathname.startsWith(item.href) && item.href !== "/admin" || pathname === item.href
                   ? "border-primary"
                   : ""
