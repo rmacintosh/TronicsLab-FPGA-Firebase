@@ -1,4 +1,3 @@
-
 import { getArticleBySlug, getCommentsByArticleId } from '@/lib/server-actions';
 import { ArticleClient } from './ArticleClient';
 import { notFound } from 'next/navigation';
