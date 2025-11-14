@@ -6,32 +6,39 @@ This document provides a detailed file-by-file analysis of the TronicsLab projec
 ## 0. File Listing (as of now 2025-10-29)
 
 admin-tools/
+    remap-user/
+        page.tsx
+        remapUserAction.ts
     fix-user-claims.js  
     readCustomClaim.js  
     serviceAccountKey.json
-components.json     
-firebase.json    
-next-env.d.ts  
-package-lock.json   
-README.md           
-tsconfig.json
-apphosting.production.yaml  
+    printUsers.js
+    deleteUser.js
+    firestoreListDir.js
+    listFirestoreImages.js
+functions/
+    lib/
+        index.js
+        index.js.map
+    src/
+        index.ts
+    node_modules/
+        *omitted*
+    .gitignore
+    tsconfig.json
 docs/
     backend.json  
     blueprint.md
-next.config.mjs  
 node_modules/
     *omitted*
-postcss.config.mjs  
 src/
     ai/
-        actions.ts
-        dev.ts
         flows/
             make-admin-flow.ts
+        actions.ts
+        dev.ts
         genkit.ts
     app/
-        actions.ts
         admin/
             articles/
                 edit/
@@ -44,29 +51,30 @@ src/
                 page.tsx
             comments/
                 page.tsx
-            layout.tsx
-            page.tsx
             users/
                 components/
                     cell-action.tsx
                     columns.tsx
                     data-table.tsx
                 page.tsx
+            layout.tsx
+            page.tsx
         articles/
             [slug]/
                 page.tsx
-        favicon.ico
-        globals.css
-        layout.tsx
+                ArticleClient.tsx
         login/
             page.tsx
         make-me-admin/
             page.tsx
-        page.tsx
         profile/
             page.tsx
         signup/
             page.tsx
+        favicon.ico
+        globals.css
+        layout.tsx
+        page.tsx
     components/
         layout/
             admin-header.tsx
@@ -78,6 +86,7 @@ src/
             theme-provider.tsx
         tiptap-editor/
             .gitkeep
+            custom-image.tsx
             index.tsx
             toolbar.tsx
         ui/
@@ -118,8 +127,10 @@ src/
             toast.tsx
             tooltip.tsx
             toaster.tsx
+            truncated-text.tsx
         admin-sidebar.tsx
         code-block.tsx
+        dynamic-icon.tsx
         FirebaseErrorListener.tsx
         theme-toggle.tsx
         user-nav.tsx
@@ -140,33 +151,60 @@ src/
         use-mobile.tsx
         use-toast.ts
     lib/
+        actions/
+            admin.actions.ts
+            article.actions.ts
+            category.actions.ts
+            comment.actions.ts
+            user.actions.ts
+        article-helpers.ts
+        auth-utils.ts
+        image-upload.ts
+        server-actions.ts
         server-types.ts
         types.ts
         utils.ts
+    seed-data/
+        images/
+            image.jpg
+            pexels-pixabay-163100.jpg
+        placeholder-images/
+            advanced-fsm.png
+            fpga-basics.png
+            placeholder.png
+            verilog-hello-world.png
+        articles.ts
+        categories.ts
+        temp.txt
     firestore.rules
     Gemini-Chat.md
+    Gemini-Chatv2.md
     TODO.md
-    .env
-    .env.local
-    .gitignore
-    .modified
-    apphosting.production.yaml
-    apphosting.yaml
-    components.json
-    firebase-debug.log
-    firebase.json
-    next-env.d.ts
-    next.config.mjs
-    next.config.ts
-    package-lock.json
-    package.json
-    postcss.config.mjs
-    README.md
-    tailwind.config.ts
-    tsconfig.json
-    tsconfig.tsbuildinfo
-    website-overview.md
+.aiexclude
+.env
+.env.local
+.gitignore
+.modified
+apphosting.production.yaml
+apphosting.yaml
+components.json
+firebase-debug.log
+firebase.json
+next-env.d.ts
+next.config.mjs
+package-lock.json
+package.json
+postcss.config.mjs
+README.md
+serviceAccountKey.json
+storage.rules
+tailwind.config.ts
+tsconfig.json
+tsconfig.tsbuildinfo
+website-overview.md
 
+
+# Site overview and structure #
 
 ## 1. Project-Level Configuration
 
