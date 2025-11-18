@@ -4,17 +4,6 @@ This file tracks the features and changes for the TronicsLab application.
 
 ---
 
-## P1: Critical Security Fixes
-
-These are critical security vulnerabilities that **must be fixed** before the application is considered "live" or exposed to untrusted users.
-
-| Task | Status | Notes |
-| :--- | :--- | :--- |
-| **Insecure Article Deletion** | `VULNERABILITY` | The `deleteArticleAndAssociatedImage` function does not verify the user is the author. **Fix:** Require auth token and compare UID with article's `authorId`. |
-| **Stored Cross-Site Scripting (XSS)** | `VULNERABILITY` | Raw HTML from the editor is saved and rendered with `dangerouslySetInnerHTML`. **Fix:** Implement server-side HTML sanitization before saving article content. |
-
----
-
 ## P2: Feature Enhancements
 
 These tasks build upon the new core architecture to improve user functionality.
@@ -109,6 +98,8 @@ This section serves as an archive of all completed tasks for this project.
 
 | Feature | Notes |
 | :--- | :--- |
+| **Stored Cross-Site Scripting (XSS)** | Implemented server-side HTML sanitization using `sanitize-html` to prevent malicious code from being saved to the database. |
+| **Secure Article Deletion** | Verified that the `deleteArticleAndAssociatedImage` function correctly checks if the user is the author or an admin before proceeding with the deletion. |
 | **Admin: Users** | Fixed roles filter & refactored to use a single source of truth. |
 | **Admin: Polish** | Added an 'Actions' column header to the Users admin page. |
 | **Admin: Polish** | Improved the hover effect on primary and secondary buttons for better visual feedback. |

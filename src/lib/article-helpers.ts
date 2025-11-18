@@ -100,6 +100,12 @@ export async function processAndCreateArticle(
                 throw new Error('Author not found');
             }
             const authorName = authorDoc.data()?.displayName || 'Unknown Author';
+            const categoryRef = firestore.collection('categories').doc(articleData.categoryId);
+            const categoryDoc = await transaction.get(categoryRef);
+            if (!categoryDoc.exists) {
+                throw new Error('Category not found');
+            }
+            const categoryName = categoryDoc.data()?.name || 'Uncategorized';
 
             const newArticle: Article = {
                 id: articleRef.id,
@@ -109,7 +115,8 @@ export async function processAndCreateArticle(
                 content: finalContent,
                 authorId: authorId,
                 authorName: authorName,
-                category: articleData.category,
+                category: categoryName,
+                categoryId: articleData.categoryId,
                 date: new Date().toISOString(),
                 views: 0,
                 image: {

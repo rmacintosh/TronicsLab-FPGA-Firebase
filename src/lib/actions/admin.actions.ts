@@ -4,23 +4,44 @@ import { adminFirestore } from '@/firebase/admin';
 import { getStorage } from 'firebase-admin/storage';
 import { JSDOM } from 'jsdom';
 import { bundledLanguages, createHighlighter, Highlighter } from 'shiki';
+import sanitizeHtml from 'sanitize-html';
 import { processAndCreateArticle } from '@/lib/article-helpers';
 import { NewArticleData } from '@/lib/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { initialCategories } from '@/seed-data/categories';
 import { articlesToSeed } from '@/seed-data/articles';
-import { verifyAdmin } from '@/lib/auth-utils'; // CORRECT: Import from the new utility file
+import { verifyAdmin } from '@/lib/auth-utils';
 
-// Highlighter setup remains the same...
 const highlighterPromise: Promise<Highlighter> = createHighlighter({
     themes: ['github-light', 'github-dark'],
     langs: Object.keys(bundledLanguages),
 });
 
-// getHighlightedHtml function remains the same...
 export async function getHighlightedHtml(html: string): Promise<string> {
-    const dom = new JSDOM(html);
+    const sanitizedHtml = sanitizeHtml(html, {
+        allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'pre', 'code', 'span', 'div', 'p', 'br'
+        ]),
+        allowedAttributes: {
+            ...sanitizeHtml.defaults.allowedAttributes,
+            '*': ['class', 'style'],
+            a: ['href', 'name', 'target'],
+            img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
+            pre: ['data-lang', 'data-theme'],
+            code: ['data-lang', 'data-theme'],
+            div: ['data-color-mode'],
+            span: ['data-line'],
+        },
+        selfClosing: ['img', 'br'],
+        allowedSchemes: ['http', 'https', 'ftp', 'mailto', 'tel'],
+        allowedSchemesByTag: {},
+        allowedSchemesAppliedToAttributes: ['href', 'src', 'cite'],
+        allowProtocolRelative: true,
+        enforceHtmlBoundary: false,
+    });
+
+    const dom = new JSDOM(sanitizedHtml);
     const { document } = dom.window;
     const codeBlocks = document.querySelectorAll('pre > code');
     const highlighter = await highlighterPromise;
@@ -42,7 +63,6 @@ export async function getHighlightedHtml(html: string): Promise<string> {
     return document.body.innerHTML;
 }
 
-// deleteAllDocuments and deleteAllStorageFiles functions remain the same...
 async function deleteAllDocuments(collectionPath: string) {
     const collectionRef = adminFirestore.collection(collectionPath);
     const snapshot = await collectionRef.get();
@@ -61,10 +81,7 @@ async function deleteAllStorageFiles(prefix: string) {
     console.log(`All files with prefix '${prefix}' have been deleted from storage.`);
 }
 
-// REMOVED: The duplicated verifyAdmin function is no longer here.
-
 export async function seedDatabaseAction(authToken: string): Promise<{ success: boolean; message: string }> {
-    // CORRECT: Use the imported verifyAdmin function
     const { isAdmin, decodedToken, error } = await verifyAdmin(authToken);
     if (!isAdmin || !decodedToken) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -75,7 +92,6 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
 
         console.log('STARTING DATABASE SEEDING PROCESS...');
 
-        // ... (rest of the seeding logic is unchanged)
         console.log('Step 1: Clearing all existing articles, categories, and image data...');
         await Promise.all([
             deleteAllDocuments('articles'),
@@ -114,7 +130,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
                 slug: articleSeed.slug,
                 title: articleSeed.title,
                 description: articleSeed.description,
-                category: articleSeed.category,
+                categoryId: articleSeed.categoryId,
                 content: highlightedContent,
                 image: { id: imageId, imageHint: articleSeed.imageHint, imageUrl: '' },
             };

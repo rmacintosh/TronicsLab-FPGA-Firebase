@@ -24,7 +24,7 @@ export type NewArticleData = {
   slug: string;
   title: string;
   description: string;
-  category: string;
+  categoryId: string;
   image: {
     id: string;
     imageUrl: string;

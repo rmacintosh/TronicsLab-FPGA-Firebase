@@ -118,10 +118,9 @@ export async function getAllArticlesAction(authToken: string): Promise<{ success
         const articlesSnapshot = await adminFirestore.collection('articles').get();
         const articles: Article[] = articlesSnapshot.docs.map(doc => {
             const data = doc.data() as ServerArticle;
-            const { categoryId, ...rest } = data;
             return {
-                ...rest,
-                category: categoryMap.get(categoryId) || 'Uncategorized',
+                ...data,
+                category: categoryMap.get(data.categoryId) || 'Uncategorized',
             };
         });
 
