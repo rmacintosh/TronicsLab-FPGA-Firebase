@@ -4,9 +4,7 @@ import { adminFirestore } from '@/firebase/admin';
 import { Category } from '@/lib/server-types';
 import { revalidatePath } from 'next/cache';
 import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
-import { verifyAdmin } from '@/lib/auth-utils'; // CORRECT: Import from the new utility file
-
-// REMOVED: The duplicated verifyAdmin function is no longer here.
+import { verifyAdmin } from '@/lib/auth-utils';
 
 interface CategorySettings {
     maxDepth: number;
@@ -70,7 +68,6 @@ async function getCategorySettings(): Promise<CategorySettings> {
 }
 
 export async function getCategorySettingsAction(authToken: string): Promise<{ success: boolean; settings?: CategorySettings; message?: string }> {
-    // CORRECT: Use the imported verifyAdmin function
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -85,9 +82,7 @@ export async function getCategorySettingsAction(authToken: string): Promise<{ su
     }
 }
 
-
 export async function updateCategorySettingsAction(authToken: string, newSettings: Partial<CategorySettings>): Promise<{ success: boolean, message: string }> {
-    // CORRECT: Use the imported verifyAdmin function
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -120,7 +115,6 @@ async function getCategoryDepth(categoryId: string, db: Firestore): Promise<numb
 }
 
 export async function createCategoryAction(authToken: string, name: string, parentId: string | null, icon?: string): Promise<{ success: boolean, message: string, id?: string }> {
-    // CORRECT: Use the imported verifyAdmin function
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -167,7 +161,6 @@ const getAllDescendantIds = (categoryId: string, allCategories: Category[]): str
 };
 
 export async function updateCategoryAction(authToken: string, categoryId: string, newName: string, newParentId: string | null, newIcon?: string): Promise<{ success: boolean, message: string }> {
-    // CORRECT: Use the imported verifyAdmin function
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -206,7 +199,6 @@ export async function updateCategoryAction(authToken: string, categoryId: string
 }
 
 export async function deleteCategoryAction(authToken: string, categoryId: string, newParentIdForChildren: string | null): Promise<{ success: boolean, message: string }> {
-    // CORRECT: Use the imported verifyAdmin function
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -231,5 +223,21 @@ export async function deleteCategoryAction(authToken: string, categoryId: string
     } catch (error: any) {
         console.error('Error deleting category:', error);
         return { success: false, message: error.message || 'An unknown error occurred.' };
+    }
+}
+
+export async function getCategoryById(id: string): Promise<Category | null> {
+    try {
+        const docRef = adminFirestore.collection('categories').doc(id);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+            return null;
+        }
+
+        return { id: docSnap.id, ...docSnap.data() } as Category;
+    } catch (error) {
+        console.error(`Error fetching category by ID: ${id}`, error);
+        return null;
     }
 }

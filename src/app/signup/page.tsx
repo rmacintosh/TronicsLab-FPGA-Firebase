@@ -1,18 +1,19 @@
-"use client"
+'use client';
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import Link from "next/link"
-import { useUser } from "@/firebase/provider"
-import { initiateEmailSignUp, initiateGoogleSignIn } from "@/firebase/non-blocking-login"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
-import { getAuth } from "firebase/auth"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { useUser } from "@/firebase/provider";
+import { initiateEmailSignUp, initiateGoogleSignIn } from "@/firebase/non-blocking-login";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { getAuth } from "firebase/auth";
+import { createUserDocumentAction } from "@/lib/actions/user.actions";
 
 const formSchema = z.object({
     displayName: z.string().min(2, {
@@ -24,7 +25,7 @@ const formSchema = z.object({
     password: z.string().min(6, {
         message: "Password must be at least 6 characters.",
     }),
-})
+});
 
 export default function SignupPage() {
     const { user, isUserLoading: isLoading } = useUser();
@@ -43,12 +44,16 @@ export default function SignupPage() {
             email: "",
             password: "",
         },
-    })
+    });
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         try {
             const auth = getAuth();
-            await initiateEmailSignUp(auth, values.email, values.password, values.displayName);
+            const userCredential = await initiateEmailSignUp(auth, values.email, values.password, values.displayName);
+            if (userCredential.user) {
+                const token = await userCredential.user.getIdToken();
+                await createUserDocumentAction(token, values.displayName);
+            }
         } catch (error) {
             console.error("Signup failed:", error);
         }
@@ -57,11 +62,16 @@ export default function SignupPage() {
     async function handleGoogleLogin() {
         try {
             const auth = getAuth();
-            await initiateGoogleSignIn(auth);
+            const userCredential = await initiateGoogleSignIn(auth);
+            if (userCredential.user) {
+                const token = await userCredential.user.getIdToken();
+                const displayName = userCredential.user.displayName || 'Google User';
+                await createUserDocumentAction(token, displayName);
+            }
         } catch (error) {
             console.error("Google login failed:", error);
         }
-      }
+    }
 
     if (isLoading || user) {
         return <div>Loading...</div>; 
@@ -121,7 +131,7 @@ export default function SignupPage() {
                             </Button>
                             <Button variant="outline" type="button" className="w-full" onClick={handleGoogleLogin}>
                                 Sign Up with Google
-                             </Button>
+                            </Button>
                         </form>
                     </Form>
                     <div className="mt-4 text-center text-sm">

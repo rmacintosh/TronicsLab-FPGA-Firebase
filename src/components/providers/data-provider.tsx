@@ -11,8 +11,8 @@ import { createArticleAction, deleteArticleAction, updateArticleAction } from '@
 import { createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction } from '@/lib/actions/category.actions';
 import { updateUserRolesAction, deleteUserAction } from '@/lib/actions/user.actions';
 import { deleteCommentAction } from '@/lib/actions/comment.actions';
-import { Article, Category, Comment, User, UserRole } from '@/lib/server-types';
-import { NewArticleData, FullArticle, FullComment } from '@/lib/types';
+import { Article as ServerArticle, Category, Comment, User, UserRole, FullComment as ServerFullComment } from '@/lib/server-types';
+import { NewArticleData, Article, FullComment } from '@/lib/types';
 
 const idConverter = <T,>() => ({
     toFirestore: (data: T) => data as DocumentData,
@@ -38,14 +38,14 @@ interface DataContextType {
     user: User | null;
     userRoles: UserRole[];
     isAdmin: boolean;
-    articles: FullArticle[];
+    articles: Article[];
     categories: Category[];
     comments: FullComment[];
     users: User[];
     isLoading: boolean;
     seedDatabase: () => Promise<void>;
     createArticle: (article: NewArticleData) => Promise<{ success: boolean; message: string; slug?: string; }>;
-    updateArticle: (articleId: string, article: Partial<Article>) => Promise<{ success: boolean; message: string; slug?: string; }>;
+    updateArticle: (articleId: string, article: Partial<ServerArticle>) => Promise<{ success: boolean; message: string; slug?: string; }>;
     deleteArticle: (articleId: string) => Promise<{ success: boolean; message: string; }>;
     createCategory: (name: string, parentId: string | null, icon?: string) => Promise<{ success: boolean; message: string; id?: string }>;
     updateCategory: (categoryId: string, newName: string, newParentId: string | null) => Promise<{ success: boolean; message: string; }>;
@@ -80,6 +80,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return {
             ...userProfile,
             roles: userRoles,
+            createdAt: authUser.metadata.creationTime || new Date().toISOString(),
         };
     }, [authUser, firestoreUser]);
 
@@ -94,9 +95,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const [refresh, setRefresh] = useState(0);
 
-    const articlesCollection = useMemo(() => firestore ? collection(firestore, 'articles').withConverter<Article>(idConverter<Article>()) : null, [firestore, refresh]);
+    const articlesCollection = useMemo(() => firestore ? collection(firestore, 'articles').withConverter<ServerArticle>(idConverter<ServerArticle>()) : null, [firestore, refresh]);
     const [articlesSnapshot, articlesLoading] = useCollection(articlesCollection);
-    const articles = useMemo(() => articlesSnapshot?.docs.map(doc => doc.data()) || [], [articlesSnapshot]);
+    const serverArticles = useMemo(() => articlesSnapshot?.docs.map(doc => doc.data()) || [], [articlesSnapshot]);
 
     const categoriesCollection = useMemo(() => firestore ? collection(firestore, 'categories').withConverter<Category>(idConverter<Category>()) : null, [firestore, refresh]);
     const [categoriesSnapshot, categoriesLoading] = useCollection(categoriesCollection);
@@ -110,24 +111,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [commentsSnapshot, commentsLoading] = useCollection(commentsCollection);
     const comments = useMemo(() => commentsSnapshot?.docs.map(doc => doc.data()) || [], [commentsSnapshot]);
 
-    const fullArticles = useMemo(() => {
+    const articles: Article[] = useMemo(() => {
         const categoryMap = new Map(categories.map(c => [c.id, c.name]));
-        return articles.map(article => ({
-            ...article,
-            authorName: article.authorName || 'Unknown Author',
-            categoryName: categoryMap.get(article.categoryId) || 'Unknown Category',
-        }));
-    }, [articles, categories]);
+        return serverArticles.map(article => {
+            return {
+                ...article,
+                authorName: article.authorName || 'Unknown Author',
+                category: categoryMap.get(article.categoryId) || 'Unknown Category',
+            };
+        });
+    }, [serverArticles, categories]);
 
     const fullComments: FullComment[] = useMemo(() => {
-        const articleMap = new Map(articles.map(a => [a.id, a.title]));
+        const articleMap = new Map(serverArticles.map(a => [a.id, a.title]));
         return comments.map(comment => ({
             ...comment,
             articleTitle: articleMap.get(comment.articleId) || 'Unknown Article',
             authorName: comment.authorName || 'Unknown Author',
             createdAt: (comment.createdAt as any).toDate().toISOString(),
         }));
-    }, [comments, articles]);
+    }, [comments, serverArticles]);
     
     const createArticle = async (article: NewArticleData) => {
         const auth = getAuth();
@@ -137,7 +140,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return await createArticleAction(token, article);
     };
 
-    const updateArticle = async (articleId: string, article: Partial<Article>) => {
+    const updateArticle = async (articleId: string, article: Partial<ServerArticle>) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("You must be logged in to update an article.");
@@ -236,7 +239,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user: currentUser,
         userRoles,
         isAdmin,
-        articles: fullArticles,
+        articles,
         categories,
         comments: fullComments,
         users,

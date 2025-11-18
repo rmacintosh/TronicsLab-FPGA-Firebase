@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -5,10 +6,11 @@ import { useFirebase } from '@/firebase/provider'; // CORRECTED IMPORT
 import { getAllUsersAction } from '@/lib/actions/user.actions';
 import { User } from '@/lib/server-types';
 import { columns } from './components/columns';
-import { DataTable } from './components/data-table';
+import { DataTable } from '@/app/admin/components/data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { roles } from "@/lib/constants";
 
 export default function UsersPage() {
     const { user, isUserLoading } = useFirebase(); // CORRECT: Use useFirebase hook
@@ -88,7 +90,28 @@ export default function UsersPage() {
                 <CardTitle>Manage Users</CardTitle>
             </CardHeader>
             <CardContent>
-                <DataTable columns={columns} data={users} />
+                <DataTable 
+                    columns={columns} 
+                    data={users} 
+                    filterableColumns={[
+                        {
+                            id: 'roles',
+                            title: 'Roles',
+                            options: roles.map((role) => ({ label: role, value: role }))
+                        }
+                    ]}
+                    searchableColumns={[
+                        {
+                            id: 'displayName',
+                            placeholder: 'Filter by name...'
+                        }
+                    ]}
+                    dateRangeColumns={[
+                        {
+                            id: "createdAt",
+                        }
+                    ]}
+                />
             </CardContent>
         </Card>
     );

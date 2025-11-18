@@ -2,47 +2,41 @@
 'use client';
 
 import { ColumnDef } from "@tanstack/react-table";
-import { User } from "@/lib/server-types";
-import { CellAction } from "./cell-action";
+import { FullComment } from "@/lib/types";
 import { DataTableColumnHeader } from "@/app/admin/components/data-table-column-header";
+import { CellAction } from "./cell-action";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { DateRange } from "react-day-picker";
 
-export const columns: ColumnDef<User>[] = [
+export const columns: ColumnDef<FullComment>[] = [
     {
-        accessorKey: "displayName",
+        accessorKey: "comment",
         header: ({ column }) => (
-            <DataTableColumnHeader column={column} title="Name" />
+            <DataTableColumnHeader column={column} title="Comment" />
         ),
-        meta: {
-            displayName: "Name",
-        }
-    },
-    {
-        accessorKey: "email",
-        header: ({ column }) => (
-            <DataTableColumnHeader column={column} title="Email" />
-        ),
-        meta: {
-            displayName: "Email",
-        }
-    },
-    {
-        accessorKey: "roles",
-        header: "Roles",
         cell: ({ row }) => {
-            const roles = row.original.roles || [];
-            return <div>{roles.join(", ")}</div>;
-        },
-        filterFn: (row, id, value) => {
-            const userRoles = (row.getValue(id) as string[]) || [];
-            const selectedRoles = value as string[];
-            if (!userRoles || userRoles.length === 0 || selectedRoles.length === 0) return false;
-            return selectedRoles.some(role => userRoles.includes(role));
+            const comment = row.original;
+            return <TruncatedText text={comment.comment} title={`Comment by ${comment.authorName}`} />;
         },
         meta: {
-            displayName: "Roles",
+            displayName: "Comment",
         }
-
+    },
+    {
+        accessorKey: "authorName",
+        header: ({ column }) => (
+            <DataTableColumnHeader column={column} title="Author" />
+        ),
+        meta: {
+            displayName: "Author",
+        }
+    },
+    {
+        accessorKey: "articleTitle",
+        header: "Article",
+        meta: {
+            displayName: "Article",
+        }
     },
     {
         accessorKey: "createdAt",

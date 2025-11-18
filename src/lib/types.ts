@@ -1,7 +1,12 @@
 
-import type { Article, Comment as ServerComment, User, FullComment as ServerFullComment } from "./server-types";
+import type { Article as ServerArticle, Comment as ServerComment, User, FullComment as ServerFullComment, Category } from "./server-types";
 
-export type { Article, User };
+// Redefine the Article type for the client to use category in addition to categoryId
+export interface Article extends ServerArticle {
+    category: string;
+}
+
+export type { User, Category };
 
 // Redefine the Comment and FullComment types for the client to expect a string for createdAt
 export interface Comment extends Omit<ServerComment, 'createdAt'> {
@@ -12,7 +17,6 @@ export interface FullComment extends Omit<ServerFullComment, 'createdAt'> {
   createdAt: string;
 }
 
-
 // This type is used for the form when creating a new article.
 // It is intentionally kept in a separate, client-safe file.
 export type NewArticleData = {
@@ -20,7 +24,7 @@ export type NewArticleData = {
   slug: string;
   title: string;
   description: string;
-  categoryId: string;
+  category: string;
   image: {
     id: string;
     imageUrl: string;
@@ -31,8 +35,3 @@ export type NewArticleData = {
   };
   content: string;
 };
-
-export interface FullArticle extends Article {
-  categoryName: string;
-  authorName: string;
-}

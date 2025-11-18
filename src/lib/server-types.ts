@@ -4,7 +4,11 @@ import { firestore } from "firebase-admin";
 // These types are intended for server-side use only.
 // They are kept separate to avoid bundling server-only code with client components.
 
-export type UserRole = 'admin' | 'author' | 'moderator' | 'user';
+// Define the roles as a constant array. This is the single source of truth.
+export const USER_ROLES = ['admin', 'author', 'moderator', 'user'] as const;
+
+// Derive the UserRole type from the USER_ROLES constant.
+export type UserRole = typeof USER_ROLES[number];
 
 export interface Article {
   id: string;
@@ -56,5 +60,5 @@ export interface User {
   displayName: string | null;
   photoURL: string | null;
   roles: UserRole[];
+  createdAt: string;
 }
-  

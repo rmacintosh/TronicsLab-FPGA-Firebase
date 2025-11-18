@@ -103,19 +103,13 @@ These items are technical in nature and need to be addressed before a full produ
 
 ---
 
-## Admin Panel Polish & Bug Fixes (v1.1)
-| Area | Task | Details | Status |
-| :--- | :--- | :--- | :--- |
-| **Admin: Comments** | Add filtering/grouping | For scalability, add options to filter comments by article or user. | To Do |
-
----
-
 ## ✅ Completed Tasks
 
 This section serves as an archive of all completed tasks for this project.
 
 | Feature | Notes |
 | :--- | :--- |
+| **Admin: Users** | Fixed roles filter & refactored to use a single source of truth. |
 | **Admin: Polish** | Added an 'Actions' column header to the Users admin page. |
 | **Admin: Polish** | Improved the hover effect on primary and secondary buttons for better visual feedback. |
 | **Admin: Articles** | Fixed a bug that caused the author's name to display as 'Unknown Author'. |

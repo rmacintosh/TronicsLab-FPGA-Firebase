@@ -1,8 +1,9 @@
 'use server';
 
 import { adminFirestore } from '@/firebase/admin';
-import { Article, Comment, User, FullComment } from './server-types';
+import { Article, Comment, User, FullComment, Category } from './server-types';
 import { firestore } from 'firebase-admin';
+import { getCategoryById as getCategoryByIdAction } from './actions/category.actions';
 
 // Helper to convert Timestamp to ISO string for a comment object
 const toSerializableFullComment = (comment: Comment, articleTitle: string): Omit<FullComment, 'createdAt'> & { createdAt: string } => {
@@ -29,6 +30,15 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 
   const doc = snapshot.docs[0];
   return { id: doc.id, ...doc.data() } as Article;
+}
+
+/**
+ * Fetches a single category from Firestore by its ID.
+ * @param id The ID of the category to fetch.
+ * @returns The category data or null if not found.
+ */
+export async function getCategoryById(id: string): Promise<Category | null> {
+  return getCategoryByIdAction(id);
 }
 
 /**
@@ -88,4 +98,24 @@ export async function addComment(articleId: string, userId: string, commentText:
     const articleTitle = article?.title || 'Unknown Article';
 
     return toSerializableFullComment(newComment, articleTitle);
+}
+
+/**
+ * Fetches all articles from Firestore.
+ * @returns An array of all articles.
+ */
+export async function getAllArticles(): Promise<Article[]> {
+  const articlesRef = adminFirestore.collection('articles');
+  const snapshot = await articlesRef.get();
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Article[];
+}
+
+/**
+ * Fetches all categories from Firestore.
+ * @returns An array of all categories.
+ */
+export async function getAllCategories(): Promise<Category[]> {
+  const categoriesRef = adminFirestore.collection('categories');
+  const snapshot = await categoriesRef.get();
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Category[];
 }

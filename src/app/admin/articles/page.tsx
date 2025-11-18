@@ -1,135 +1,111 @@
-"use client";
 
-import { useData } from "@/components/providers/data-provider";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useFirebase } from '@/firebase/provider';
+import { getAllArticlesAction } from '@/lib/actions/article.actions';
+import { Article } from '@/lib/types';
+import { columns } from './components/columns';
+import { DataTable } from '@/app/admin/components/data-table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ArticlesPage() {
-  const { articles, userRoles, refreshData, deleteArticle } = useData();
-  const { toast } = useToast();
+    const { user, isUserLoading } = useFirebase();
+    const { toast } = useToast();
+    const [articles, setArticles] = useState<Article[]>([]);
+    const [loading, setLoading] = useState(true);
 
-  const canCreate = userRoles.includes('admin') || userRoles.includes('author');
+    useEffect(() => {
+        if (isUserLoading) {
+            setLoading(true);
+            return;
+        }
 
-  const handleDelete = async (id: string) => {
-    try {
-      const result = await deleteArticle(id);
-      if (result.success) {
-        refreshData();
-        toast({
-          title: "Success",
-          description: "Article deleted successfully.",
-        });
-      } else {
-        toast({
-            title: "Error",
-            description: result.message,
-            variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete article.",
-        variant: "destructive",
-      });
+        const fetchArticles = async () => {
+            if (!user) {
+                toast({
+                    variant: "destructive",
+                    title: "Authentication Error",
+                    description: "You must be logged in to manage articles.",
+                });
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const authToken = await user.getIdToken();
+                if (!authToken) {
+                    throw new Error('Authentication token not available.');
+                }
+                const result = await getAllArticlesAction(authToken);
+                if (result.success && result.articles) {
+                    setArticles(result.articles);
+                } else {
+                    toast({
+                        variant: "destructive",
+                        title: "Failed to fetch articles",
+                        description: result.message || 'An unknown error occurred.',
+                    });
+                }
+            } catch (error: any) {
+                console.error('Error fetching articles:', error);
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: error.message || 'An error occurred while fetching the article list.',
+                });
+            }
+            setLoading(false);
+        };
+
+        fetchArticles();
+    }, [user, isUserLoading, toast]);
+
+    if (loading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Manage Articles</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
+        );
     }
-  };
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-            <CardTitle>Articles</CardTitle>
-            <CardDescription>
-            Manage your articles. You can edit or delete existing articles.
-            </CardDescription>
-        </div>
-        {canCreate && (
-            <Link href="/admin/articles/new">
-                <Button>New Article</Button>
-            </Link>
-        )}
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Author</TableHead>
-              {canCreate && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {articles.map((article) => (
-              <TableRow key={article.id}>
-                <TableCell className="font-medium">{article.title}</TableCell>
-                <TableCell>{article.categoryName}</TableCell>
-                <TableCell>{article.authorName}</TableCell>
-                {canCreate && (
-                    <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                            <Link href={`/admin/articles/edit/${article.slug}`}>
-                                <Button variant="outline" size="xs" className="w-16">
-                                Edit
-                                </Button>
-                            </Link>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="xs" className="w-16">
-                                    Delete
-                                </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the article.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(article.id)}>
-                                    Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Manage Articles</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <DataTable 
+                    columns={columns} 
+                    data={articles} 
+                    searchableColumns={[
+                        {
+                            id: 'title',
+                            placeholder: 'Filter by title...'
+                        },
+                        {
+                            id: 'category',
+                            placeholder: 'Filter by category...'
+                        },
+                        {
+                            id: 'authorName',
+                            placeholder: 'Filter by author...'
+                        }
+                    ]}
+                />
+            </CardContent>
+        </Card>
+    );
 }

@@ -15,13 +15,14 @@ export function initiateAnonymousSignIn(authInstance: Auth): void {
   signInAnonymously(authInstance);
 }
 
-/** Initiate email/password sign-up (non-blocking). */
-export async function initiateEmailSignUp(authInstance: Auth, email: string, password: string, displayName: string): Promise<void> {
+/** Initiate email/password sign-up and return the UserCredential. */
+export async function initiateEmailSignUp(authInstance: Auth, email: string, password: string, displayName: string): Promise<UserCredential> {
   try {
     const userCredential = await createUserWithEmailAndPassword(authInstance, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName });
     }
+    return userCredential;
   } catch (error) {
     console.error("Error during sign up:", error);
     // Re-throw the error to be caught by the calling function

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useData } from "@/components/providers/data-provider";
@@ -8,59 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { TruncatedText } from "@/components/ui/truncated-text";
+import { columns } from "./components/columns";
+import { DataTable } from "../components/data-table";
 
 export default function CommentsPage() {
-  const { comments, userRoles, refreshData, deleteComment } = useData();
-  const { toast } = useToast();
-
-  const canModerate = userRoles.includes('admin') || userRoles.includes('moderator');
-
-  const handleDelete = async (id: string) => {
-    try {
-      const result = await deleteComment(id);
-      if (result.success) {
-        refreshData();
-        toast({
-          title: "Success",
-          description: "Comment deleted successfully.",
-        });
-      } else {
-        toast({
-            title: "Error",
-            description: result.message,
-            variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete comment.",
-        variant: "destructive",
-      });
-    }
-  };
+  const { comments } = useData();
 
   return (
     <Card>
@@ -71,54 +24,23 @@ export default function CommentsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Comment</TableHead>
-              <TableHead>Author</TableHead>
-              <TableHead>Article</TableHead>
-              {canModerate && <TableHead className="text-center">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {comments.map((comment) => (
-              <TableRow key={comment.id}>
-                <TableCell className="font-medium">
-                    <TruncatedText text={comment.comment} title={`Comment by ${comment.authorName}`} />
-                </TableCell>
-                <TableCell>{comment.authorName}</TableCell>
-                <TableCell>{comment.articleTitle}</TableCell>
-                {canModerate && (
-                    <TableCell className="text-center">
-                        <div className="flex justify-end gap-2">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="xs" className="w-16">
-                                    Delete
-                                </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the comment.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(comment.id)}>
-                                    Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                    </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable 
+          columns={columns} 
+          data={comments} 
+          dateRangeColumns={[
+            { id: "createdAt" },
+          ]}
+          searchableColumns={[
+            {
+              id: 'authorName',
+              placeholder: 'Filter by author...'
+            },
+            {
+              id: 'articleTitle',
+              placeholder: 'Filter by article...'
+            }
+          ]}
+        />
       </CardContent>
     </Card>
   );

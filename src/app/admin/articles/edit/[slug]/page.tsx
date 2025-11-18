@@ -14,7 +14,7 @@ import { useData } from "@/components/providers/data-provider";
 import { useFirebase, useStorage } from "@/firebase/provider";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { Category, Article } from "@/lib/server-types";
+import { Category, Article } from "@/lib/types";
 import { useMemo, useState, use, useEffect } from "react";
 import { updateArticleAction } from "@/lib/actions/article.actions";
 import Image from 'next/image';
@@ -46,6 +46,10 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
     const [isImageRemoved, setIsImageRemoved] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
+    const initialCategoryId = useMemo(() => {
+        return categories.find(c => c.name === article.category)?.id || "";
+    }, [article.category, categories]);
+
     const form = useForm<z.infer<typeof articleSchema>>({
         resolver: zodResolver(articleSchema),
         mode: 'onChange',
@@ -54,7 +58,7 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             description: article.description,
             content: article.content,
             imageHint: article.image?.imageHint || "",
-            categoryId: article.categoryId,
+            categoryId: initialCategoryId,
         },
     });
 

@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { FullArticle } from "@/lib/types";
+import { Article } from "@/lib/types";
 
 export default function ProfilePage() {
     const { user, isUserLoading } = useUser();
@@ -28,7 +28,7 @@ export default function ProfilePage() {
 
     const userComments = comments.filter(comment => comment.userId === user.uid);
     
-    const articleMap = new Map<string, FullArticle>(articles.map(a => [a.id, a]));
+    const articleMap = new Map<string, Article>(articles.map(a => [a.id, a]));
 
     return (
         <div className="space-y-8">

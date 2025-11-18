@@ -114,7 +114,7 @@ export async function seedDatabaseAction(authToken: string): Promise<{ success: 
                 slug: articleSeed.slug,
                 title: articleSeed.title,
                 description: articleSeed.description,
-                categoryId: articleSeed.categoryId,
+                category: articleSeed.category,
                 content: highlightedContent,
                 image: { id: imageId, imageHint: articleSeed.imageHint, imageUrl: '' },
             };

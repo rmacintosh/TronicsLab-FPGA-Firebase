@@ -1,6 +1,7 @@
-import { getArticleBySlug, getCommentsByArticleId } from '@/lib/server-actions';
+import { getArticleBySlug, getCommentsByArticleId, getCategoryById } from '@/lib/server-actions';
 import { ArticleClient } from './ArticleClient';
 import { notFound } from 'next/navigation';
+import { Article } from '@/lib/types';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -19,13 +20,22 @@ export default async function ArticlePage({ params }: PageProps) {
     notFound();
   }
 
+  // Fetch category data to transform the article object for the client.
+  const category = await getCategoryById(article.categoryId);
+
   // Fetch comments data on the server.
   const comments = await getCommentsByArticleId(article.id);
+
+  // Create the client-safe article object.
+  const clientArticle: Article = {
+    ...article,
+    category: category?.name || 'Uncategorized',
+  };
 
   // Render the client component with the fetched data.
   return (
     <ArticleClient
-      initialArticle={article}
+      initialArticle={clientArticle}
       initialComments={comments}
     />
   );

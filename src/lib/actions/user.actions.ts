@@ -35,12 +35,12 @@ export async function getAllUsersAction(authToken: string): Promise<{ success: b
             const displayName = (firestoreData?.displayName || userRecord.displayName) || (userRecord.email ? userRecord.email.split('@')[0] : 'Anonymous');
 
             return {
-                id: userRecord.uid,
                 uid: userRecord.uid,
                 displayName: displayName,
                 email: userRecord.email || 'N/A',
                 photoURL: userRecord.photoURL || firestoreData?.photoURL || '/default-avatar.png',
                 roles: firestoreData?.roles || userRecord.customClaims?.roles || ['user'],
+                createdAt: userRecord.metadata.creationTime,
             };
         });
 
@@ -128,6 +128,9 @@ export async function createUserDocumentAction(authToken: string, name: string):
         if (userDoc.exists) {
             return { success: true, message: 'User document already exists.' };
         }
+        
+        const userRecord = await adminAuth.getUser(uid);
+        const creationTime = userRecord.metadata.creationTime;
 
         // Enforce displayName: use provided name, existing token name, or derive from email.
         const finalName = (name && name.trim()) || decodedToken.displayName || userEmail.split('@')[0];
@@ -137,12 +140,13 @@ export async function createUserDocumentAction(authToken: string, name: string):
         await adminAuth.updateUser(uid, { displayName: finalName });
         await adminAuth.setCustomUserClaims(uid, { roles: defaultRoles });
 
-        const newUser: Omit<User, 'id'> = {
+        const newUser: User = {
             uid: uid,
             displayName: finalName,
             email: userEmail,
             photoURL: decodedToken.picture || '/default-avatar.png', 
             roles: defaultRoles,
+            createdAt: creationTime,
         };
 
         await userRef.set(newUser);

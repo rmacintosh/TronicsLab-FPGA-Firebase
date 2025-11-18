@@ -109,7 +109,7 @@ export async function processAndCreateArticle(
                 content: finalContent,
                 authorId: authorId,
                 authorName: authorName,
-                categoryId: articleData.categoryId,
+                category: articleData.category,
                 date: new Date().toISOString(),
                 views: 0,
                 image: {
@@ -155,6 +155,18 @@ export async function deleteArticleAndAssociatedImage(
     const userRef = firestore.collection('users').doc(requestingUid);
 
     try {
+        // First, delete all comments in the article's comments subcollection
+        const commentsRef = articleRef.collection('comments');
+        const commentsSnapshot = await commentsRef.get();
+        if (!commentsSnapshot.empty) {
+            const batch = firestore.batch();
+            commentsSnapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            console.log(`Deleted ${commentsSnapshot.size} comments for article ${articleId}`);
+        }
+
         await firestore.runTransaction(async (transaction) => {
             const articleSnap = await transaction.get(articleRef);
             if (!articleSnap.exists) {

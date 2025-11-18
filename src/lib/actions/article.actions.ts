@@ -1,22 +1,19 @@
 'use server';
 
-import { Article, UserRole } from '@/lib/server-types';
-import { NewArticleData } from '@/lib/types';
+import { Article as ServerArticle } from '@/lib/server-types';
+import { Article, NewArticleData } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import {
   processAndCreateArticle,
   deleteArticleAndAssociatedImage,
 } from '@/lib/article-helpers';
 import { adminFirestore } from '@/firebase/admin';
-import { verifyUser, verifyUserRole } from '@/lib/auth-utils'; // CORRECT: Import from the new utility file
-
-// REMOVED: The duplicated verifyUserRole function is no longer here.
+import { verifyUser, verifyUserRole } from '@/lib/auth-utils';
 
 export async function createArticleAction(
   authToken: string,
   articleData: NewArticleData
 ): Promise<{ success: boolean; message: string; slug?: string }> {
-  // CORRECT: Use the imported verifyUserRole function
   const { hasRole, decodedToken, error } = await verifyUserRole(authToken, ['admin', 'author']);
   if (!hasRole || !decodedToken) {
       return { success: false, message: error || 'Authorization failed.' };
@@ -42,7 +39,6 @@ export async function updateArticleAction(
   articleId: string,
   articleData: Partial<Article>
 ): Promise<{ success: boolean; message: string; slug?: string }> {
-  // CORRECT: Use the imported verifyUserRole function
   const { hasRole, error } = await verifyUserRole(authToken, ['admin', 'author']);
   if (!hasRole) {
       return { success: false, message: error || 'Authorization failed.' };
@@ -50,7 +46,6 @@ export async function updateArticleAction(
 
   try {
     const articleRef = adminFirestore.collection('articles').doc(articleId);
-    // ... (rest of the logic is unchanged)
     const sanitizedPayload: { [key: string]: any } = {};
     (Object.keys(articleData) as Array<keyof typeof articleData>).forEach((key) => {
       if (articleData[key] !== undefined) {
@@ -94,7 +89,6 @@ export async function deleteArticleAction(
   }
 
   try {
-    // Pass the user's UID to the helper function for authorization
     const result = await deleteArticleAndAssociatedImage(articleId, user.uid);
 
     if (result.success) {
@@ -106,4 +100,34 @@ export async function deleteArticleAction(
     console.error('Error in deleteArticleAction:', error);
     return { success: false, message: `Failed to delete article: ${error.message}` };
   }
+}
+
+export async function getAllArticlesAction(authToken: string): Promise<{ success: boolean; message?: string; articles?: Article[] }> {
+    try {
+        const { user, error: userError } = await verifyUser(authToken);
+        if (!user) {
+            return { success: false, message: userError || 'Authentication failed.' };
+        }
+
+        const categoriesSnapshot = await adminFirestore.collection('categories').get();
+        const categoryMap = new Map<string, string>();
+        categoriesSnapshot.docs.forEach(doc => {
+            categoryMap.set(doc.id, doc.data().name);
+        });
+
+        const articlesSnapshot = await adminFirestore.collection('articles').get();
+        const articles: Article[] = articlesSnapshot.docs.map(doc => {
+            const data = doc.data() as ServerArticle;
+            const { categoryId, ...rest } = data;
+            return {
+                ...rest,
+                category: categoryMap.get(categoryId) || 'Uncategorized',
+            };
+        });
+
+        return { success: true, articles };
+    } catch (error: any) {
+        console.error('Error in getAllArticlesAction:', error);
+        return { success: false, message: `Failed to get articles: ${error.message}` };
+    }
 }
