@@ -2,161 +2,137 @@
 
 import { adminFirestore } from '@/firebase/admin';
 import { getStorage } from 'firebase-admin/storage';
-import { JSDOM } from 'jsdom';
-import { bundledLanguages, createHighlighter, Highlighter } from 'shiki';
-import sanitizeHtml from 'sanitize-html';
-import { processAndCreateArticle } from '@/lib/article-helpers';
-import { NewArticleData } from '@/lib/types';
+import { Article } from '@/lib/types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { initialCategories } from '@/seed-data/categories';
 import { articlesToSeed } from '@/seed-data/articles';
 import { verifyAdmin } from '@/lib/auth-utils';
+import { FieldValue } from 'firebase-admin/firestore';
 
-const highlighterPromise: Promise<Highlighter> = createHighlighter({
-    themes: ['github-light', 'github-dark'],
-    langs: Object.keys(bundledLanguages),
-});
-
-export async function getHighlightedHtml(html: string): Promise<string> {
-    const sanitizedHtml = sanitizeHtml(html, {
-        allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'pre', 'code', 'span', 'div', 'p', 'br'
-        ]),
-        allowedAttributes: {
-            ...sanitizeHtml.defaults.allowedAttributes,
-            '*': ['class', 'style'],
-            a: ['href', 'name', 'target'],
-            img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
-            pre: ['data-lang', 'data-theme'],
-            code: ['data-lang', 'data-theme'],
-            div: ['data-color-mode'],
-            span: ['data-line'],
-        },
-        selfClosing: ['img', 'br'],
-        allowedSchemes: ['http', 'https', 'ftp', 'mailto', 'tel'],
-        allowedSchemesByTag: {},
-        allowedSchemesAppliedToAttributes: ['href', 'src', 'cite'],
-        allowProtocolRelative: true,
-        enforceHtmlBoundary: false,
-    });
-
-    const dom = new JSDOM(sanitizedHtml);
-    const { document } = dom.window;
-    const codeBlocks = document.querySelectorAll('pre > code');
-    const highlighter = await highlighterPromise;
-
-    for (const codeBlock of codeBlocks) {
-        const preElement = codeBlock.parentElement as HTMLPreElement;
-        const lang = codeBlock.className.replace('language-', '');
-        const code = codeBlock.textContent || '';
-        try {
-            const highlightedCode = highlighter.codeToHtml(code, {
-                lang,
-                themes: { light: 'github-light', dark: 'github-dark' },
-            });
-            preElement.outerHTML = highlightedCode;
-        } catch (e) {
-            console.error(`Shiki highlighting failed for lang: '${lang}'`, e);
-        }
-    }
-    return document.body.innerHTML;
-}
-
-async function deleteAllDocuments(collectionPath: string) {
+// Helper functions for cleanup
+async function deleteAllFromCollection(collectionPath: string) {
     const collectionRef = adminFirestore.collection(collectionPath);
     const snapshot = await collectionRef.get();
     if (snapshot.empty) return;
     const batch = adminFirestore.batch();
     snapshot.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
-    console.log(`All documents in '${collectionPath}' have been deleted.`);
+}
+
+async function deleteAllFromCollectionGroup(collectionGroup: string) {
+    const groupRef = adminFirestore.collectionGroup(collectionGroup);
+    const snapshot = await groupRef.get();
+    if (snapshot.empty) return;
+    const batch = adminFirestore.batch();
+    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
 }
 
 async function deleteAllStorageFiles(prefix: string) {
     const bucket = getStorage().bucket();
     const [files] = await bucket.getFiles({ prefix });
     if (files.length === 0) return;
+    // Note: This can still be parallel as it's just deleting.
     await Promise.all(files.map(file => file.delete()));
-    console.log(`All files with prefix '${prefix}' have been deleted from storage.`);
 }
 
+// FINAL, CORRECTED VERSION: Runs sequentially to avoid rate-limiting.
 export async function seedDatabaseAction(authToken: string): Promise<{ success: boolean; message: string }> {
     const { isAdmin, decodedToken, error } = await verifyAdmin(authToken);
     if (!isAdmin || !decodedToken) {
         return { success: false, message: error || 'Authorization failed.' };
     }
 
+    const authorId = decodedToken.uid;
+    const firestore = adminFirestore;
+
     try {
-        const authorId = decodedToken.uid;
+        console.log('STARTING SEQUENTIAL DATABASE SEEDING PROCESS...');
 
-        console.log('STARTING DATABASE SEEDING PROCESS...');
-
-        console.log('Step 1: Clearing all existing articles, categories, and image data...');
+        // Step 1: Clean up existing data
         await Promise.all([
-            deleteAllDocuments('articles'),
-            deleteAllDocuments('categories'),
-            deleteAllDocuments('images'),
+            deleteAllFromCollection('articles'),
+            deleteAllFromCollectionGroup('comments'),
+            deleteAllFromCollection('categories'),
+            deleteAllFromCollection('images'),
             deleteAllStorageFiles('images/'),
         ]);
-        console.log('Step 1: Cleanup complete.');
+        console.log('Cleanup complete.');
 
-        console.log('Step 2: Seeding categories...');
-        const categoryBatch = adminFirestore.batch();
+        // Step 2: Seed Categories
+        const categoryBatch = firestore.batch();
+        const categoryMap = new Map<string, { name: string; slug: string }>();
         initialCategories.forEach(category => {
-            const categoryRef = adminFirestore.collection('categories').doc(category.id);
-            categoryBatch.set(categoryRef, category);
+            const categoryRef = firestore.collection('categories').doc(category.id);
+            const categoryWithCount = { ...category, articleCount: 0 };
+            categoryBatch.set(categoryRef, categoryWithCount);
+            categoryMap.set(category.id, { name: category.name, slug: category.slug });
         });
         await categoryBatch.commit();
-        console.log('Step 2: Categories seeded.');
+        console.log('Categories seeded.');
 
-        console.log('Step 3: Preparing articles and uploading initial images...');
-        const articleDataForCreation = await Promise.all(articlesToSeed.map(async (articleSeed) => {
-            const imageRef = adminFirestore.collection('images').doc();
-            const imageId = imageRef.id;
-            const tempStoragePath = `images/temp/${authorId}/${imageId}/${articleSeed.imageFileName}`;
+        // Step 3: Get Author Info
+        const authorRef = firestore.collection('users').doc(authorId);
+        const authorSnap = await authorRef.get();
+        const authorName = authorSnap.data()?.displayName || 'Unknown Author';
+
+        // Step 4: Create articles and trigger image processing SEQUENTIALLY
+        console.log('Creating articles and triggering image processing sequentially to avoid rate limits...');
+        
+        for (const articleSeed of articlesToSeed) {
+            const articleRef = firestore.collection('articles').doc();
+            const imageId = firestore.collection('images').doc().id;
             const localImagePath = path.join(process.cwd(), 'src', 'seed-data', articleSeed.imageFolderName, articleSeed.imageFileName);
+            const tempStoragePath = `images/temp/${authorId}/${imageId}/${articleSeed.imageFileName}`;
 
-            try {
-                const imageBuffer = await fs.readFile(localImagePath);
-                await getStorage().bucket().file(tempStoragePath).save(imageBuffer);
-            } catch (error) {
-                throw new Error(`Failed to read or upload seed image: ${localImagePath}. Make sure it exists.`);
-            }
-            
-            const highlightedContent = await getHighlightedHtml(articleSeed.content);
-
-            const data: NewArticleData = {
+            const categoryInfo = categoryMap.get(articleSeed.categoryId) || { name: 'Uncategorized', slug: 'uncategorized' };
+            const newArticle: Omit<Article, 'image'> & { image: { id: string, imageHint: string } } = {
+                id: articleRef.id,
                 slug: articleSeed.slug,
                 title: articleSeed.title,
                 description: articleSeed.description,
+                content: articleSeed.content, // Raw content
+                authorId: authorId,
+                authorName: authorName,
                 categoryId: articleSeed.categoryId,
-                content: highlightedContent,
-                image: { id: imageId, imageHint: articleSeed.imageHint, imageUrl: '' },
+                categoryName: categoryInfo.name,
+                categorySlug: categoryInfo.slug,
+                date: new Date().toISOString(),
+                views: 0,
+                image: { 
+                    id: imageId, 
+                    imageHint: articleSeed.imageHint,
+                },
             };
-            return data;
-        }));
-        console.log('Step 3: Article data prepared and images uploaded to temp directory.');
 
-        console.log('Step 4: Waiting for image processing and creating articles...');
-        const creationPromises = articleDataForCreation.map(data => processAndCreateArticle(authorId, data));
-        const creationResults = await Promise.all(creationPromises);
+            const categoryRef = firestore.collection('categories').doc(articleSeed.categoryId);
+            const articleBatch = firestore.batch();
+            articleBatch.set(articleRef, newArticle);
+            articleBatch.update(categoryRef, { articleCount: FieldValue.increment(1) });
+            await articleBatch.commit();
 
-        const failedCreations = creationResults.filter(r => !r.success);
-        if (failedCreations.length > 0) {
-            const errorDetails = failedCreations.map(f => `${f.slug}: ${f.message}`).join('\n');
-            throw new Error(`One or more articles failed during final creation step:\n${errorDetails}`);
+            const imageBuffer = await fs.readFile(localImagePath);
+            await getStorage().bucket().file(tempStoragePath).save(imageBuffer, {
+                 metadata: {
+                    metadata: {
+                        userId: authorId,
+                        imageId: imageId,
+                        isTemp: 'true'
+                    },
+                },
+            });
+            console.log(`SEQUENTIAL: Created article: ${newArticle.slug}. Triggered image processing for imageId: ${imageId}.`);
         }
-        console.log('Step 4: All articles created successfully.');
 
-        console.log('DATABASE SEEDING COMPLETED SUCCESSFULLY!');
-        return { success: true, message: 'Database seeded successfully!' };
+        console.log('DATABASE SEEDING PROCESS COMPLETED SUCCESSFULLY!');
+        return { success: true, message: 'Database seed completed! Articles created and image processing has been triggered for all items.' };
 
-    } catch (error: any) {
-        console.error("DATABASE SEEDING FAILED:", error);
+    } catch (e: any) {
+        console.error("DATABASE SEEDING FAILED:", e);
         return {
             success: false,
-            message: `Failed to seed database: ${error.message}`,
+            message: `Failed to seed database: ${e.message}`,
         };
     }
 }

@@ -1,10 +1,9 @@
 
 import type { Article as ServerArticle, Comment as ServerComment, User, FullComment as ServerFullComment, Category } from "./server-types";
 
-// Redefine the Article type for the client to use category in addition to categoryId
-export interface Article extends ServerArticle {
-    category: string;
-}
+// The client-side Article is now a direct alias of the server-side Article.
+// It includes all fields, including the denormalized categoryName and categorySlug.
+export type Article = ServerArticle;
 
 export type { User, Category };
 
@@ -32,6 +31,7 @@ export type NewArticleData = {
     thumbUrl?: string;
     mediumUrl?: string;
     largeUrl?: string;
+    fileName?: string; // The name of the original file, needed for server processing
   };
   content: string;
 };

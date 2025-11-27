@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -96,7 +95,7 @@ export default function ArticlesPage() {
                             placeholder: 'Filter by title...'
                         },
                         {
-                            id: 'category',
+                            id: 'categoryName',
                             placeholder: 'Filter by category...'
                         },
                         {

@@ -1,8 +1,8 @@
 'use server';
 
-import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
-import { getApps } from 'firebase-admin/app';
-import { adminFirestore } from '@/firebase/admin';
+import { DecodedIdToken } from 'firebase-admin/auth';
+// CORRECTED: Import the initialized adminAuth service directly, do not try to get the app instance.
+import { adminAuth, adminFirestore } from '@/firebase/admin';
 import { UserRole } from '@/lib/server-types';
 
 /**
@@ -15,8 +15,8 @@ export const verifyUser = async (authToken: string): Promise<{ user?: DecodedIdT
         return { error: 'Authentication required.' };
     }
 
-    const adminAuth = getAuth(getApps()[0]);
     try {
+        // Use the already-initialized adminAuth instance.
         const decodedToken = await adminAuth.verifyIdToken(authToken);
         return { user: decodedToken };
     } catch (error) {

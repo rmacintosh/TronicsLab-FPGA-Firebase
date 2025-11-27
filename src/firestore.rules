@@ -34,6 +34,14 @@ service cloud.firestore {
       allow write: if request.auth.uid == userId;
     }
 
+    // Rules for the 'images' collection
+    match /images/{imageId} {
+      // Admins can read any image document. Others can only read their own.
+      allow get: if request.auth != null && (('admin' in request.auth.token.roles) || (resource.data.userId == request.auth.uid));
+      // Admins can create image documents for any user. Authors can only create them for themselves.
+      allow create: if request.auth != null && (('admin' in request.auth.token.roles) || ('author' in request.auth.token.roles && request.resource.data.userId == request.auth.uid));
+    }
+
     // Settings can only be accessed by admins.
     match /settings/{docId} {
         allow read, write: if 'admin' in request.auth.token.roles;

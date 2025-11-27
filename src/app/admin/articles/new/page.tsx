@@ -15,12 +15,11 @@ import { useFirebase } from '@/firebase/provider';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Category } from '@/lib/server-types';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { X } from 'lucide-react';
-import { uploadImageAndListen, deleteImage, ImageData } from '@/lib/image-upload';
-import { getStorage, ref, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
+import { uploadImage, deleteImage } from '@/lib/image-upload';
+import { getFirestore, doc, collection } from 'firebase/firestore';
 
 const articleSchema = z.object({
   title: z.string().min(10, 'Title must be at least 10 characters'),
@@ -41,7 +40,7 @@ export default function NewArticlePage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [uploadedImage, setUploadedImage] = useState<{ docId: string; data: ImageData, thumbnailUrl: string } | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<{ imageId: string; previewUrl: string; file: File } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<z.infer<typeof articleSchema>>({
@@ -56,6 +55,14 @@ export default function NewArticlePage() {
     },
   });
 
+  useEffect(() => {
+    return () => {
+      if (uploadedImage?.previewUrl) {
+        URL.revokeObjectURL(uploadedImage.previewUrl);
+      }
+    };
+  }, [uploadedImage]);
+
   const selectedCategoryId = form.watch('categoryId');
   const selectedCategory = useMemo(() => 
       categories.find(c => c.id === selectedCategoryId)
@@ -66,45 +73,26 @@ export default function NewArticlePage() {
     if (!file || !user) return;
 
     setIsUploading(true);
-    const { id: toastId, update } = toast({
-      title: 'Uploading Image...',
-      description: 'Starting upload...',
-    });
+    const { id, update } = toast({ title: 'Uploading Image...' });
 
     try {
-      const imageId = uuidv4();
-      const { docId, data } = await uploadImageAndListen(
-        file,
-        user.uid,
-        imageId,
-        (progress: number) => {
-          update({
-            id: toastId,
-            title: 'Uploading Image...',
-            description: `Upload is ${progress}% done. Waiting for server processing...`,
-          });
-        }
-      );
+      const db = getFirestore();
+      const imageRef = doc(collection(db, 'images'));
+      const imageId = imageRef.id;
 
-      // Get the download URL for the thumbnail
-      const storage = getStorage();
-      const thumbRef = ref(storage, data.resizedPaths.thumb || data.originalPath);
-      const thumbnailUrl = await getDownloadURL(thumbRef);
-      
-      setUploadedImage({ docId, data, thumbnailUrl });
+      await uploadImage(file, user.uid, imageId);
 
-      update({
-        id: toastId,
-        title: 'Image Uploaded!',
-        description: 'The image and thumbnails are ready.',
-      });
+      const previewUrl = URL.createObjectURL(file);
+      setUploadedImage({ imageId, previewUrl, file });
+
+      update({ id, title: 'Image Uploaded!', description: 'The image is ready for the article.' });
     } catch (error) {
-      console.error('Image upload and processing error:', error);
+      console.error('Image upload error:', error);
       update({
-        id: toastId,
+        id,
         variant: 'destructive',
         title: 'Upload Failed',
-        description: 'Could not upload and process the image.',
+        description: 'Could not upload the image.',
       });
     } finally {
       setIsUploading(false);
@@ -114,16 +102,18 @@ export default function NewArticlePage() {
   const handleRemoveImage = async () => {
     if (uploadedImage) {
         try {
-            await deleteImage(uploadedImage.docId);
-            toast({ title: 'Image Removed', description: 'The uploaded image and its thumbnails have been deleted.' });
+            await deleteImage(uploadedImage.imageId);
+            toast({ title: 'Image Removed', description: 'The uploaded image has been removed.' });
+            
+            URL.revokeObjectURL(uploadedImage.previewUrl);
             setUploadedImage(null);
             form.setValue('imageHint', '');
         } catch (error) {
-            console.error('Error deleting image set:', error);
+            console.error('Error deleting image:', error);
             toast({
                 variant: 'destructive',
                 title: 'Error Removing Image',
-                description: 'Could not remove the image set.',
+                description: 'Could not remove the uploaded image.',
             });
         }
     }
@@ -150,13 +140,13 @@ export default function NewArticlePage() {
         content: values.content,
         categoryId: values.categoryId,
         image: {
-            id: uploadedImage.docId, // Use the docId from Firestore
-            // Store the storage paths, not download URLs
-            imageUrl: uploadedImage.data.originalPath,
-            thumbUrl: uploadedImage.data.resizedPaths.thumb,
-            mediumUrl: uploadedImage.data.resizedPaths.medium,
-            largeUrl: uploadedImage.data.resizedPaths.large,
+            id: uploadedImage.imageId, 
             imageHint: values.imageHint || '',
+            imageUrl: '', // Not needed, server handles it
+            thumbUrl: '', // Not needed, server handles it
+            mediumUrl: '', // Not needed, server handles it
+            largeUrl: '', // Not needed, server handles it
+            fileName: uploadedImage.file.name,
         },
     });
 
@@ -263,7 +253,7 @@ export default function NewArticlePage() {
                 {uploadedImage ? (
                     <div className="relative w-fit">
                         <Image
-                            src={uploadedImage.thumbnailUrl} // Use the thumbnail URL for preview
+                            src={uploadedImage.previewUrl}
                             alt="Article preview"
                             width={200}
                             height={100}

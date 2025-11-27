@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useCallback } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export const Toolbar = ({ editor }: { editor: Editor | null }) => {
   const { user } = useFirebase();
@@ -70,6 +71,29 @@ export const Toolbar = ({ editor }: { editor: Editor | null }) => {
     }
   };
 
+  const languages = [
+    { value: 'bash', label: 'Bash' },
+    { value: 'csharp', label: 'C#' },
+    { value: 'css', label: 'CSS' },
+    { value: 'go', label: 'Go' },
+    { value: 'html', label: 'HTML' },
+    { value: 'java', label: 'Java' },
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'json', label: 'JSON' },
+    { value: 'makefile', label: 'Makefile' },
+    { value: 'markdown', label: 'Markdown' },
+    { value: 'php', label: 'PHP' },
+    { value: 'python', label: 'Python' },
+    { value: 'ruby', label: 'Ruby' },
+    { value: 'rust', label: 'Rust' },
+    { value: 'sql', label: 'SQL' },
+    { value: 'systemverilog', label: 'SystemVerilog' },
+    { value: 'typescript', label: 'TypeScript' },
+    { value: 'verilog', label: 'Verilog' },
+    { value: 'vhdl', label: 'VHDL' },
+    { value: 'yaml', label: 'YAML' },
+  ];
+
   return (
     <div className="sticky top-20 z-10 bg-background border border-gray-300 rounded-md p-2 flex items-center gap-1 flex-wrap">
       <Button type="button" variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleBold().run()} className={editor.isActive('bold') ? 'bg-gray-200' : ''}><Bold className="w-5 h-5" /></Button>
@@ -81,6 +105,27 @@ export const Toolbar = ({ editor }: { editor: Editor | null }) => {
       <Button type="button" variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleBulletList().run()} className={editor.isActive('bulletList') ? 'bg-gray-200' : ''}><List className="w-5 h-5" /></Button>
       <Button type="button" variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={editor.isActive('orderedList') ? 'bg-gray-200' : ''}><ListOrdered className="w-5 h-5" /></Button>
       <Button type="button" variant="ghost" size="sm" onClick={() => editor.chain().focus().toggleCodeBlock().run()} className={editor.isActive('codeBlock') ? 'bg-gray-200' : ''}><Code className="w-5 h-5" /></Button>
+      
+      {editor.isActive('codeBlock') && (
+        <Select
+            value={editor.getAttributes('codeBlock').language || ''}
+            onValueChange={(value) =>
+                editor.chain().focus().updateAttributes('codeBlock', { language: value }).run()
+            }
+        >
+            <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+                {languages.map(lang => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+      )}
+
       <Button type="button" variant="ghost" size="sm" onClick={setLink} className={editor.isActive('link') ? 'bg-gray-200' : ''}><LinkIcon className="w-5 h-5" /></Button>
       <Button type="button" variant="ghost" size="sm" onClick={() => editor.chain().focus().setTextAlign('left').run()} className={editor.isActive({ textAlign: 'left' }) ? 'bg-gray-200' : ''}><AlignLeft className="w-5 h-5" /></Button>
       <Button type="button" variant="ghost" size="sm" onClick={() => editor.chain().focus().setTextAlign('center').run()} className={editor.isActive({ textAlign: 'center' }) ? 'bg-gray-200' : ''}><AlignCenter className="w-5 h-5" /></Button>

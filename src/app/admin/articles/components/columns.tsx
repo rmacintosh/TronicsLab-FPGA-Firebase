@@ -17,7 +17,7 @@ export const columns: ColumnDef<Article>[] = [
         }
     },
     {
-        accessorKey: "category",
+        accessorKey: "categoryName",
         header: ({ column }) => (
             <DataTableColumnHeader column={column} title="Category" className="" />
         ),

@@ -66,6 +66,8 @@ export default function AdminDashboard() {
         description: "The initial data has been successfully loaded into Firestore.",
       });
     } catch (error: any) {
+      // CORRECTED LOGGING: Log the full error to the browser console
+      console.error("--- CLIENT-SIDE SEEDING ERROR ---", error);
       toast({
         variant: "destructive",
         title: "Error Seeding Database",

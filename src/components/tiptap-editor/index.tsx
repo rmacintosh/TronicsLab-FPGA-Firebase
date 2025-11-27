@@ -15,9 +15,50 @@ import { Toolbar } from './toolbar';
 import { useEffect } from 'react';
 import { useFirebase } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
-import { uploadImageAndListen } from '@/lib/image-upload';
-import { getStorage, ref, getDownloadURL } from 'firebase/storage';
-import { collection, doc } from "firebase/firestore";
+import { uploadContentImage } from '@/lib/image-upload';
+
+// 1. Extend the CodeBlock extension
+const CustomCodeBlock = CodeBlock.extend({
+  addAttributes() {
+    return {
+      // inherit the default attributes
+      ...this.parent?.(),
+      // add a new attribute for language
+      language: {
+        default: null,
+        // This is used to parse the language from the HTML
+        parseHTML: element => {
+          const codeEl = element.querySelector('code');
+          if (!codeEl) {
+            return null;
+          }
+          const language = codeEl.className.match(/language-([\w-]+)/)?.[1];
+          return language || null;
+        },
+      },
+    };
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    // The outer element is a <pre> tag
+    return [
+      'pre',
+      HTMLAttributes,
+      [
+        // The inner element is a <code> tag
+        'code',
+        {
+          // Add the language class to the <code> tag
+          class: node.attrs.language
+            ? `language-${node.attrs.language}`
+            : '',
+        },
+        // 0 means this is where the content should be rendered
+        0,
+      ],
+    ];
+  },
+});
 
 const TiptapEditor = ({
   content,
@@ -26,15 +67,15 @@ const TiptapEditor = ({
   content: string;
   onChange: (richText: string) => void;
 }) => {
-  const { user, firestore } = useFirebase();
+  const { user } = useFirebase();
   const { toast } = useToast();
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        codeBlock: false, // Disable default to use custom below
+        codeBlock: false, // We're disabling the default to use our custom one
       }),
-      CustomImage, // Your custom image extension
+      CustomImage,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -49,7 +90,7 @@ const TiptapEditor = ({
       TableRow,
       TableHeader,
       TableCell,
-      CodeBlock,
+      CustomCodeBlock, // 2. Use the extended CodeBlock
     ],
     content: '', 
     editorProps: {
@@ -57,36 +98,25 @@ const TiptapEditor = ({
         class: 'prose dark:prose-invert w-full max-w-none prose-sm sm:prose-base lg:prose-lg xl:prose-2xl focus:outline-none border border-gray-300 rounded-md p-2 min-h-[200px]',
       },
       handleDrop: function(view, event, slice, moved) {
-        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0 && user && firestore) {
+        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0 && user) {
           const files = Array.from(event.dataTransfer.files);
           const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
           if (imageFiles.length > 0) {
             event.preventDefault();
             imageFiles.forEach(async (file) => {
-              // Generate a unique ID for the image on the client-side
-              const imageId = doc(collection(firestore, 'images')).id;
-
+              const { id, update } = toast({ title: 'Uploading image...', description: 'Your image is being uploaded.' });
+              
               try {
-                toast({ title: 'Uploading image...', description: 'Your image is being uploaded and processed.' });
-                
-                // Pass the unique ID to the upload function
-                const { data } = await uploadImageAndListen(file, user.uid, imageId, () => {});
-                
-                const storage = getStorage();
-                // Use medium size for in-content images, fallback to original
-                const imageUrl = data.resizedPaths.medium || data.originalPath;
-                const imageRef = ref(storage, imageUrl);
-                const downloadURL = await getDownloadURL(imageRef);
-
+                const downloadURL = await uploadContentImage(file);
                 view.dispatch(view.state.tr.replaceSelectionWith(view.state.schema.nodes.image.create({ src: downloadURL })));
-                toast({ title: 'Image successfully added!' });
+                update({ id, title: 'Image successfully added!' });
               } catch (error) {
                 console.error('Error handling dropped image:', error);
-                toast({ variant: 'destructive', title: 'Image upload failed', description: 'There was an error processing your image.' });
+                update({ id, variant: 'destructive', title: 'Image upload failed', description: 'There was an error processing your image.' });
               }
             });
-            return true; // Indicating that we've handled the drop
+            return true; 
           }
         }
         return false;

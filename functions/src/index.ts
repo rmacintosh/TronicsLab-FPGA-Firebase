@@ -1,5 +1,5 @@
 import {onObjectFinalized} from "firebase-functions/v2/storage";
-import {onRequest} from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
@@ -9,6 +9,7 @@ import * as os from "os";
 import * as fs from "fs";
 import sharp from "sharp";
 import {defineString} from "firebase-functions/params";
+import { Category } from "./server-types";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -22,6 +23,13 @@ const LARGE_WIDTH = 1920;
 // Define the GCLOUD_STORAGE_BUCKET parameter
 const storageBucket = defineString("GCLOUD_STORAGE_BUCKET");
 
+async function getPermanentSignedUrl(filePath: string, bucketName: string): Promise<string> {
+    const options = { action: 'read' as const, expires: '03-09-2491' };
+    const [url] = await storage.bucket(bucketName).file(filePath).getSignedUrl(options);
+    return url;
+}
+
+// FINAL, CORRECTED VERSION: Fixes the ENOENT race condition.
 export const generateThumbnails = onObjectFinalized({
     cpu: 2,
     bucket: storageBucket, 
@@ -30,122 +38,144 @@ export const generateThumbnails = onObjectFinalized({
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
-
-    logger.log(`New file detected: ${filePath} in bucket: ${fileBucket}`);
+    const metadata = event.data.metadata;
 
     if (!contentType || !contentType.startsWith("image/")) {
-      return logger.log("This is not an image.");
+        return logger.log("This is not an image.");
     }
-    
-    if (!path.dirname(filePath).startsWith('images/temp')) {
-        return logger.log(`File is not in a temp directory, skipping.`);
+
+    // This check is now robust because we remove the isTemp flag after processing.
+    if (!metadata || metadata.isTemp !== 'true') {
+        return logger.log(`File is not a temporary upload, skipping: ${filePath}`);
     }
 
     if (path.basename(filePath).includes('_thumb') || path.basename(filePath).includes('_medium') || path.basename(filePath).includes('_large')) {
-      return logger.log("Already a resized image, skipping.");
+        return logger.log(`Already a resized image, skipping: ${filePath}`);
     }
 
     const bucket = storage.bucket(fileBucket);
     const fileName = path.basename(filePath);
-    const pathParts = path.dirname(filePath).split('/');
-    const authorId = pathParts[2];
-    const imageId = pathParts[3];
+    const { userId, imageId } = metadata;
 
-    if (!authorId || !imageId) {
-      logger.error("Could not extract authorId or imageId from path:", filePath);
-      return;
+    if (!userId || !imageId) {
+        return logger.error("Missing userId or imageId in metadata for:", filePath);
     }
     
-    const tempFileName = `${imageId}-${fileName}`;
-    const tempFilePath = path.join(os.tmpdir(), tempFileName);
-    const metadata = {contentType};
+    // --- THIS IS THE FIX ---
+    // Use the unique event ID to create a unique temporary file path for each execution.
+    const tempFilePath = path.join(os.tmpdir(), `${event.id}-${fileName}`);
 
     try {
-        await bucket.file(filePath).download({destination: tempFilePath});
-        logger.log("Image downloaded locally to", tempFilePath);
+        await bucket.file(filePath).download({ destination: tempFilePath });
     } catch (error) {
-        logger.error("Failed to download file:", error);
-        return;
+        return logger.error("Failed to download file:", error);
     }
 
+    // Resize images
     const imageMetadata = await sharp(tempFilePath).metadata();
     const imageWidth = imageMetadata.width || 0;
-
     const sizes = {
         ...(imageWidth > THUMB_WIDTH && { thumb: THUMB_WIDTH }),
         ...(imageWidth > MEDIUM_WIDTH && { medium: MEDIUM_WIDTH }),
         ...(imageWidth > LARGE_WIDTH && { large: LARGE_WIDTH }),
     };
-
-    const uploadPromises: Promise<any>[] = [];
     const resizedPaths: { [key: string]: string } = {};
-
-    for (const [name, width] of Object.entries(sizes)) {
+    const uploadPromises = Object.entries(sizes).map(([name, width]) => {
         const newFileName = `${path.parse(fileName).name}_${name}${path.parse(fileName).ext}`;
-        const newFilePath = path.join(path.dirname(filePath), newFileName);
-        
-        const buffer = await sharp(tempFilePath)
-            .resize({ width, withoutEnlargement: true })
-            .toBuffer();
-            
+        const newFilePath = `images/${userId}/${imageId}/${newFileName}`;
         resizedPaths[name] = newFilePath;
-        uploadPromises.push(bucket.file(newFilePath).save(buffer, { metadata }));
-    }
+        return sharp(tempFilePath).resize({ width }).toBuffer()
+            .then(buffer => bucket.file(newFilePath).save(buffer, { metadata: { contentType } }));
+    });
     
     try {
         await Promise.all(uploadPromises);
     } catch (error) {
-        logger.error("Failed to upload resized images:", error);
-        fs.unlinkSync(tempFilePath);
-        return;
+        fs.unlinkSync(tempFilePath); // Clean up on failure
+        return logger.error("Failed to upload resized images:", error);
+    }
+    
+    // Move original image and then remove the isTemp flag to prevent re-triggering.
+    const permanentOriginalPath = `images/${userId}/${imageId}/${fileName}`;
+    try {
+        await bucket.file(filePath).move(permanentOriginalPath);
+        // --- THIS IS THE FIX --- 
+        // Remove the metadata flag to prevent the function from re-triggering itself.
+        await bucket.file(permanentOriginalPath).setMetadata({ metadata: { isTemp: null } });
+    } catch(err) {
+        fs.unlinkSync(tempFilePath); // Clean up on failure
+        return logger.error("Could not move original file or update metadata.", err);
     }
 
+    // Get permanent URLs
+    const permanentUrls: { [key: string]: string } = {};
+    try {
+        permanentUrls['originalUrl'] = await getPermanentSignedUrl(permanentOriginalPath, fileBucket);
+        for (const [name, resizedPath] of Object.entries(resizedPaths)) {
+            permanentUrls[`${name}Url`] = await getPermanentSignedUrl(resizedPath, fileBucket);
+        }
+    } catch (error) {
+        fs.unlinkSync(tempFilePath); // Clean up on failure
+        return logger.error("Failed to generate signed URLs:", error);
+    }
+    
+    // Update Firestore document
     const imageDocData = {
-        authorId,
+        userId: userId,
         articleId: null,
         createdAt: new Date(),
-        originalPath: filePath,
-        resizedPaths,
+        permanentPaths: { original: permanentOriginalPath, ...resizedPaths },
+        permanentUrls,
         processingComplete: true,
     };
-
     try {
         await db.collection("images").doc(imageId).set(imageDocData);
-        logger.log("Successfully created Firestore document:", imageId);
     } catch (error) {
-        logger.error("Failed to create Firestore document:", error);
+        return logger.error("Failed to create Firestore document:", error);
     }
 
     fs.unlinkSync(tempFilePath);
-    logger.log("Cleaned up temporary file.");
+    logger.log(`Processing complete for imageId: ${imageId}`)
 });
 
-export const deleteImageSet = onRequest({cors: true}, async (req, res) => {
+
+export const deleteImageSet = onCall({cors: true}, async (request) => {
     logger.log("deleteImageSet function triggered.");
 
-    const { imageId } = req.body;
-    if (!imageId) {
-        logger.error("Request body must contain 'imageId'.");
-        res.status(400).send({error: "Request body must contain 'imageId'"});
-        return;
+    if (!request.auth) {
+        logger.error("Function must be called while authenticated.");
+        throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
 
-    logger.log(`Attempting to delete image set for imageId: ${imageId}`);
+    const { imageId } = request.data;
+    if (!imageId) {
+        logger.error("Request data must contain 'imageId'.");
+        throw new HttpsError('invalid-argument', "Request data must contain 'imageId'.");
+    }
+
+    const uid = request.auth.uid;
+    const roles = request.auth.token.roles || [];
+    const isAdmin = roles.includes('admin');
+
+    logger.log(`Attempting to delete image set for imageId: ${imageId} by user: ${uid}`);
 
     const imageDocRef = db.collection("images").doc(imageId);
     const imageDoc = await imageDocRef.get();
 
     if (!imageDoc.exists) {
         logger.error(`Image document with ID ${imageId} not found.`);
-        res.status(404).send({error: "Image not found."} );
-        return;
+        throw new HttpsError('not-found', "Image not found.");
     }
 
     const imageData = imageDoc.data();
     if (!imageData) {
         logger.error(`Image document with ID ${imageId} has no data.`);
-        res.status(500).send({error: "Internal server error: Image document is empty."} );
-        return;
+        throw new HttpsError('internal', "Internal server error: Image document is empty.");
+    }
+    
+    if (imageData.userId !== uid && !isAdmin) {
+        logger.error(`User ${uid} is not authorized to delete image ${imageId} owned by ${imageData.userId}.`);
+        throw new HttpsError('permission-denied', 'You are not authorized to delete this image.');
     }
 
     const bucket = storage.bucket(storageBucket.value());
@@ -178,5 +208,57 @@ export const deleteImageSet = onRequest({cors: true}, async (req, res) => {
     await imageDocRef.delete();
     logger.log(`Successfully deleted Firestore document for imageId: ${imageId}`);
     
-    res.status(200).send({ success: true, message: `Image set ${imageId} deleted successfully.` });
+    return { success: true, message: `Image set ${imageId} deleted successfully.` };
+});
+
+interface UpdateData {
+    changedCategories: Category[];
+}
+
+export const updateCategoryArticles = onCall(async (request) => {
+    logger.log("updateCategoryArticles function triggered.");
+
+    if (!request.auth) {
+        logger.error("Function must be called while authenticated.");
+        throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    const { changedCategories } = request.data as UpdateData;
+
+    if (!changedCategories || !Array.isArray(changedCategories)) {
+        logger.error("Invalid argument: changedCategories must be an array.");
+        throw new HttpsError('invalid-argument', 'The function must be called with an array of changed categories.');
+    }
+
+    try {
+        const articleUpdates = changedCategories.map(async (category) => {
+            logger.log(`Processing category: ${category.id} (${category.name})`);
+            const articlesSnapshot = await db.collection('articles').where('categoryId', '==', category.id).get();
+            
+            if (articlesSnapshot.empty) {
+                logger.log(`No articles found for category ${category.id}.`);
+                return;
+            }
+
+            logger.log(`Found ${articlesSnapshot.size} articles to update for category ${category.id}.`);
+            const batch = db.batch();
+            articlesSnapshot.docs.forEach(doc => {
+                const articleRef = db.collection('articles').doc(doc.id);
+                batch.update(articleRef, {
+                    categoryName: category.name,
+                    categorySlug: category.slug,
+                });
+            });
+            return batch.commit();
+        });
+
+        await Promise.all(articleUpdates);
+
+        logger.log("All articles have been successfully updated.");
+        return { success: true, message: 'All articles have been successfully updated.' };
+
+    } catch (error) {
+        logger.error('Error updating articles by category:', error);
+        throw new HttpsError('internal', 'An unexpected error occurred while updating the articles.');
+    }
 });

@@ -6,9 +6,10 @@ import { collection, DocumentData, QueryDocumentSnapshot, SnapshotOptions } from
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { getAuth } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { seedDatabaseAction } from '@/lib/actions/admin.actions';
-import { createArticleAction, deleteArticleAction, updateArticleAction } from '@/lib/actions/article.actions';
-import { createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction } from '@/lib/actions/category.actions';
+import { processAndCreateArticleAction, deleteArticleAction, updateArticleAction } from '@/lib/actions/article.actions';
+import { createCategoryAction, updateCategoryAction, deleteCategoryAction, getCategorySettingsAction, updateCategorySettingsAction, batchUpdateCategoriesAction } from '@/lib/actions/category.actions';
 import { updateUserRolesAction, deleteUserAction } from '@/lib/actions/user.actions';
 import { deleteCommentAction } from '@/lib/actions/comment.actions';
 import { Article as ServerArticle, Category, Comment, User, UserRole, FullComment as ServerFullComment } from '@/lib/server-types';
@@ -47,9 +48,10 @@ interface DataContextType {
     createArticle: (article: NewArticleData) => Promise<{ success: boolean; message: string; slug?: string; }>;
     updateArticle: (articleId: string, article: Partial<ServerArticle>) => Promise<{ success: boolean; message: string; slug?: string; }>;
     deleteArticle: (articleId: string) => Promise<{ success: boolean; message: string; }>;
-    createCategory: (name: string, parentId: string | null, icon?: string) => Promise<{ success: boolean; message: string; id?: string }>;
-    updateCategory: (categoryId: string, newName: string, newParentId: string | null) => Promise<{ success: boolean; message: string; }>;
+    createCategory: (category: Partial<Category>) => Promise<{ success: boolean; message: string; id?: string }>;
+    updateCategory: (categoryId: string, category: Partial<Category>) => Promise<{ success: boolean; message: string; }>;
     deleteCategory: (categoryId: string, newParentIdForChildren: string | null) => Promise<{ success: boolean; message: string; }>;
+    batchUpdateCategories: (initialCategories: Category[], workingCategories: Category[]) => Promise<{ success: boolean; message: string; }>;
     getCategorySettings: () => Promise<{ success: boolean; settings?: CategorySettings; message?: string; }>;
     updateCategorySettings: (newSettings: Partial<CategorySettings>) => Promise<{ success: boolean; message: string; }>;
     updateUserRoles: (uid: string, roles: UserRole[]) => Promise<{ success: boolean; message: string; }>;
@@ -137,7 +139,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("You must be logged in to create an article.");
         const token = await currentUser.getIdToken();
-        return await createArticleAction(token, article);
+        return await processAndCreateArticleAction(token, article);
     };
 
     const updateArticle = async (articleId: string, article: Partial<ServerArticle>) => {
@@ -164,20 +166,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return await deleteCommentAction(token, commentId);
     };
   
-    const createCategory = async (name: string, parentId: string | null, icon?: string) => {
+    const createCategory = async (category: Partial<Category>) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("You must be logged in to create a category.");
         const token = await currentUser.getIdToken();
-        return await createCategoryAction(token, name, parentId, icon);
+        return await createCategoryAction(token, category);
     };
 
-    const updateCategory = async (categoryId: string, newName: string, newParentId: string | null) => {
+    const updateCategory = async (categoryId: string, category: Partial<Category>) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("You must be logged in to update a category.");
         const token = await currentUser.getIdToken();
-        return await updateCategoryAction(token, categoryId, newName, newParentId);
+        return await updateCategoryAction(token, categoryId, category);
     };
 
     const deleteCategory = async (categoryId: string, newParentIdForChildren: string | null) => {
@@ -186,6 +188,40 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!currentUser) throw new Error("You must be logged in to delete a category.");
         const token = await currentUser.getIdToken();
         return await deleteCategoryAction(token, categoryId, newParentIdForChildren);
+    };
+
+    const batchUpdateCategories = async (initialCategories: Category[], workingCategories: Category[]) => {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error("You must be logged in to update categories.");
+        const token = await currentUser.getIdToken();
+        const result = await batchUpdateCategoriesAction(token, initialCategories, workingCategories);
+
+        if (result.success) {
+            // Find categories whose name or slug have changed
+            const changedCategories = workingCategories.filter(currentCat => {
+                if (currentCat.id.startsWith('new-')) return false;
+                const initialCat = initialCategories.find(c => c.id === currentCat.id);
+                return initialCat && (initialCat.name !== currentCat.name || initialCat.slug !== currentCat.slug);
+            });
+
+            if (changedCategories.length > 0) {
+                try {
+                    const functions = getFunctions();
+                    const updateCategoryArticles = httpsCallable(functions, 'updateCategoryArticles');
+                    await updateCategoryArticles({ changedCategories });
+                } catch (error) {
+                    console.error('Error calling updateCategoryArticles function:', error);
+                    // Return a partial success with a warning
+                    return { 
+                        ...result, 
+                        message: "Categories saved, but updating associated articles failed. Please check articles manually." 
+                    };
+                }
+            }
+        }
+
+        return result;
     };
 
     const getCategorySettings = async () => {
@@ -252,6 +288,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createCategory,
         updateCategory,
         deleteCategory,
+        batchUpdateCategories,
         getCategorySettings,
         updateCategorySettings,
         updateUserRoles,

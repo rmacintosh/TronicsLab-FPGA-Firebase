@@ -1,414 +1,287 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useData } from '@/components/providers/data-provider';
-import { Category } from '@/lib/server-types';
+import { Category, Article } from '@/lib/server-types';
 import { Button } from '@/components/ui/button';
-import { Check, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Save, Undo, Info } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-  } from "@/components/ui/select"
-
-interface HierarchicalCategory extends Category {
-  children: HierarchicalCategory[];
-  level: number;
-}
-
-interface CategorySettings {
-    maxDepth: number;
-}
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from '@/components/ui/textarea';
+import { HierarchicalCategory, CategorySettings } from '@/components/admin/categories/types';
+import { CategoryItem } from '@/components/admin/categories/CategoryItem';
+import { buildHierarchy, findCategory as findCategoryUtil, flattenHierarchy } from '@/components/admin/categories/utils';
+import { isEqual } from 'lodash';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import IconPicker from '@/components/admin/categories/IconPicker';
 
 const CategoriesPage = () => {
-  const { categories: flatCategories, createCategory, updateCategory, deleteCategory, getCategorySettings, updateCategorySettings, refreshData } = useData();
-  const [hierarchicalCategories, setHierarchicalCategories] = useState<HierarchicalCategory[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('');
-  const [newCategoryParent, setNewCategoryParent] = useState<string | null>(null);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingCategoryName, setEditingCategoryName] = useState('');
+    const { categories: flatDbCategories, articles, batchUpdateCategories, getCategorySettings, updateCategorySettings, refreshData } = useData();
+    
+    const [initialCategories, setInitialCategories] = useState<HierarchicalCategory[]>([]);
+    const [workingCategories, setWorkingCategories] = useState<HierarchicalCategory[]>([]);
+    const [isDirty, setIsDirty] = useState(false);
+    
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryDescription, setNewCategoryDescription] = useState('');
+    const [newCategoryIcon, setNewCategoryIcon] = useState('');
+    const [newCategoryParent, setNewCategoryParent] = useState<string | null>(null);
+    const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; slug: string; } | null>(null);
+    
+    const [settings, setSettings] = useState<CategorySettings>({ maxDepth: 4 });
+    const [newMaxDepth, setNewMaxDepth] = useState<number>(4);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  const [settings, setSettings] = useState<CategorySettings>({ maxDepth: 4 });
-  const [newMaxDepth, setNewMaxDepth] = useState<number>(4);
-  const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const result = await getCategorySettings();
-      if (result.success && result.settings) {
-        setSettings(result.settings);
-        setNewMaxDepth(result.settings.maxDepth);
-      } else {
-        toast({ title: "Error", description: result.message || "Failed to fetch settings.", variant: 'destructive' });
-      }
-    };
-    fetchSettings();
-  }, [getCategorySettings]);
-
-  useEffect(() => {
-    setLoading(true);
-    const buildHierarchy = (items: Category[]): HierarchicalCategory[] => {
-        const categoryMap: { [key: string]: HierarchicalCategory } = {};
-        items.forEach(cat => {
-            categoryMap[cat.id] = { ...cat, children: [], level: 0 };
-        });
-
-        const topLevelCategories: HierarchicalCategory[] = [];
-        items.forEach(cat => {
-            if (cat.parentId && categoryMap[cat.parentId]) {
-                categoryMap[cat.parentId].children.push(categoryMap[cat.id]);
-            } else {
-                topLevelCategories.push(categoryMap[cat.id]);
+    const articleCounts = useMemo(() => {
+        const counts: { [categoryId: string]: number } = {};
+        articles.forEach((article: Article) => {
+            if (article.categoryId) {
+                counts[article.categoryId] = (counts[article.categoryId] || 0) + 1;
             }
         });
+        return counts;
+    }, [articles]);
 
-        function setLevels(categories: HierarchicalCategory[], level = 0) {
-            categories.forEach(cat => {
-                cat.level = level;
-                if (cat.children.length > 0) {
-                  setLevels(cat.children, level + 1);
+    useEffect(() => {
+        const hierarchy = buildHierarchy(flatDbCategories, articleCounts);
+        setInitialCategories(hierarchy);
+        setWorkingCategories(hierarchy);
+    }, [flatDbCategories, articleCounts]);
+
+    useEffect(() => {
+        let isMounted = true;
+        (async () => {
+            const result = await getCategorySettings();
+            if (isMounted && result.success && result.settings) {
+                setSettings(result.settings);
+                setNewMaxDepth(result.settings.maxDepth);
+            }
+        })();
+        return () => { isMounted = false; };
+    }, [getCategorySettings]);
+
+    useEffect(() => {
+        setIsDirty(!isEqual(initialCategories, workingCategories));
+    }, [initialCategories, workingCategories]);
+
+    const findCategory = useCallback((id: string) => {
+        return findCategoryUtil(workingCategories, id);
+    }, [workingCategories]);
+
+    const moveCategory = useCallback((id: string, atIndex: number, newParentId: string | null) => {
+        const { category, index } = findCategoryUtil(workingCategories, id);
+        const flat = flattenHierarchy(workingCategories);
+        flat.splice(index, 1);
+        flat.splice(atIndex, 0, { ...category, parentId: newParentId });
+        setWorkingCategories(buildHierarchy(flat, articleCounts));
+    }, [workingCategories, articleCounts]);
+
+    const handleCreateCategory = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newCategoryName.trim()) return;
+        const newCat: Omit<HierarchicalCategory, 'children'> = {
+            id: `new-${Date.now()}`,
+            name: newCategoryName,
+            slug: newCategoryName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, ''),
+            parentId: newCategoryParent,
+            description: newCategoryDescription,
+            icon: newCategoryIcon,
+            level: 0, // Placeholder level
+            articleCount: 0,
+        };
+        const flat = flattenHierarchy(workingCategories);
+        flat.push(newCat as HierarchicalCategory);
+        setWorkingCategories(buildHierarchy(flat, articleCounts));
+        setNewCategoryName('');
+        setNewCategoryDescription('');
+        setNewCategoryIcon('');
+        setNewCategoryParent(null);
+    };
+
+    const handleStartEdit = (category: Category) => {
+        setEditingCategory({ id: category.id, name: category.name, slug: category.slug });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingCategory(null);
+    };
+
+    const handleUpdateCategory = (editingData: { id: string; name: string; slug: string }) => {
+        const updateRecursively = (cats: HierarchicalCategory[]): HierarchicalCategory[] => {
+            return cats.map(cat => {
+                if (cat.id === editingData.id) {
+                    return { ...cat, name: editingData.name, slug: editingData.slug };
                 }
+                if (cat.children) {
+                    return { ...cat, children: updateRecursively(cat.children) };
+                }
+                return cat;
             });
-        }
-
-        setLevels(topLevelCategories);
-        return topLevelCategories;
-    }
-
-    setHierarchicalCategories(buildHierarchy(flatCategories));
-    setLoading(false);
-  }, [flatCategories]);
-
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) {
-      return;
-    }
-    try {
-        const result = await createCategory(newCategoryName, newCategoryParent, newCategoryIcon);
-        if (result.success) {
-            toast({ title: "Success", description: "Category created successfully." });
-            setNewCategoryName('');
-            setNewCategoryParent(null);
-            setShowCreateForm(false);
-            refreshData();
-        } else {
-            toast({ title: "Error", description: result.message, variant: 'destructive' });
-        }
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: 'destructive' });
-    }
-  };
-
-  const handleStartEdit = (category: Category) => {
-    setEditingCategoryId(category.id);
-    setEditingCategoryName(category.name);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingCategoryId(null);
-    setEditingCategoryName('');
-  };
-
-  const handleSaveEdit = async (categoryId: string) => {
-    if (!editingCategoryName.trim()) {
-        toast({ title: "Error", description: "Category name cannot be empty.", variant: 'destructive' });
-        return;
-    }
-    try {
-        const category = flatCategories.find(c => c.id === categoryId);
-        if (!category) return;
-
-        const result = await updateCategory(categoryId, editingCategoryName, category.parentId);
-        if (result.success) {
-            toast({ title: "Success", description: "Category updated successfully." });
-            handleCancelEdit();
-            refreshData();
-        } else {
-            toast({ title: "Error", description: result.message, variant: 'destructive' });
-        }
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: 'destructive' });
-    }
-  };
-
-  const handleDelete = async (categoryId: string) => {
-    try {
-        const result = await deleteCategory(categoryId, null); // Moving children to root
-        if (result.success) {
-            toast({ title: "Success", description: "Category deleted successfully." });
-            refreshData();
-        } else {
-            toast({ title: "Error", description: result.message, variant: 'destructive' });
-        }
-    } catch (error: any) {
-        toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: 'destructive' });
-    }
-  };
-  
-  const handleUpdateSettings = async () => {
-    setSettingsError(null);
-    setIsSaving(true);
-
-    const maxExistingDepth = Math.max(...flatCategoryList.map(c => c.level + 1), 0);
-    if (newMaxDepth < maxExistingDepth) {
-      setSettingsError(`Current category depth is ${maxExistingDepth}. Minimum value is ${maxExistingDepth}.`);
-      setIsSaving(false);
-      return;
-    }
-
-    try {
-        const result = await updateCategorySettings({ maxDepth: newMaxDepth });
-        if (result.success) {
-            setSettings({ maxDepth: newMaxDepth });
-            setShowSuccess(true);
-            setTimeout(() => setShowSuccess(false), 2000);
-            toast({ title: "Success", description: "Settings updated successfully." });
-        } else {
-            setSettingsError(result.message || 'Failed to update settings.');
-            setNewMaxDepth(settings.maxDepth);
-            toast({ title: "Error", description: result.message, variant: 'destructive' });
-        }
-    } catch (error: any) {
-        setSettingsError(error.message || "An unexpected error occurred.");
-        toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: 'destructive' });
-    }
-
-    setIsSaving(false);
-  };
-
-  const flatCategoryList = useMemo(() => {
-    const list: (Category & { level: number })[] = [];
-    const generateFlatList = (cats: HierarchicalCategory[], level = 0) => {
-        cats.forEach(cat => {
-            list.push({ ...cat, level });
-            if (cat.children) {
-                generateFlatList(cat.children, level + 1);
-            }
-        });
+        };
+        setWorkingCategories(updateRecursively(workingCategories));
+        handleCancelEdit();
     };
-    generateFlatList(hierarchicalCategories);
-    return list;
-  }, [hierarchicalCategories]);
-  
-  const filteredCategoryList = useMemo(() => {
-    return flatCategoryList.filter(cat => cat.level < settings.maxDepth - 1);
-  }, [flatCategoryList, settings.maxDepth]);
+    
+    const handleDeleteCategory = (categoryId: string) => {
+        const deleteRecursively = (cats: HierarchicalCategory[]): HierarchicalCategory[] => {
+            return cats.reduce((acc, cat) => {
+                if (cat.id === categoryId) {
+                    if (cat.children) {
+                        const orphanedChildren = cat.children.map(child => ({...child, parentId: null}));
+                        return [...acc, ...orphanedChildren];
+                    }
+                    return acc;
+                }
+                if (cat.children) {
+                    cat.children = deleteRecursively(cat.children);
+                }
+                acc.push(cat);
+                return acc;
+            }, [] as HierarchicalCategory[]);
+        };
+        setWorkingCategories(deleteRecursively(workingCategories));
+    };
 
+    const handleDiscardChanges = () => {
+        setWorkingCategories(initialCategories);
+        toast({ title: "Changes Discarded", description: "Your changes have been discarded." });
+    };
 
-  const renderCategory = (category: HierarchicalCategory) => {
-    const isEditing = editingCategoryId === category.id;
+    const handleApplyChanges = async () => {
+        setIsSaving(true);
+        try {
+            const result = await batchUpdateCategories(flattenHierarchy(initialCategories), flattenHierarchy(workingCategories));
+            if (result.success) {
+                toast({ title: "Success", description: "Categories updated successfully." });
+                refreshData();
+            } else {
+                toast({ title: "Error", description: result.message, variant: 'destructive' });
+            }
+        } catch (error: any) {
+            toast({ title: "Error", description: error.message || "An unexpected error occurred.", variant: 'destructive' });
+        }
+        setIsSaving(false);
+    };
+    
+    const handleUpdateSettings = async () => {
+        setSettingsError(null);
+        if (newMaxDepth < currentMaxDepth) {
+            setSettingsError(`Cannot set max depth to ${newMaxDepth}. The current category structure is ${currentMaxDepth} levels deep.`);
+            return;
+        }
+        setIsSavingSettings(true);
+        try {
+            await updateCategorySettings({ maxDepth: newMaxDepth });
+            setSettings({ maxDepth: newMaxDepth });
+            toast({ title: "Success", description: "Settings updated successfully." });
+        } catch (error: any) {
+            setSettingsError(error.message || "An unexpected error occurred.");
+        }
+        setIsSavingSettings(false);
+    };
+
+    const flatCategoryList = useMemo(() => flattenHierarchy(workingCategories), [workingCategories]);
+
+    const currentMaxDepth = useMemo(() => {
+        if (flatCategoryList.length === 0) return 1;
+        return Math.max(...flatCategoryList.map(c => c.level)) + 1;
+    }, [flatCategoryList]);
 
     return (
-      <div key={category.id} style={{ marginLeft: `${category.level * 20}px` }} className="group">
-        <div className="flex items-center justify-between p-2 border-b">
-          {isEditing ? (
-            <Input
-              type="text"
-              value={editingCategoryName}
-              onChange={(e) => setEditingCategoryName(e.target.value)}
-              className="flex-grow mr-2"
-              autoFocus
-            />
-          ) : (
-             <div className="flex items-center">
-              {category.icon && <i className={`lucide lucide-${category.icon} w-4 h-4 mr-2`} />} 
-              <span>{category.name}</span>
+        <DndProvider backend={HTML5Backend}>
+            <div className="flex flex-col gap-6">
+                <Card className="w-full">
+                    <CardHeader>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-2">
+                            <div>
+                                <CardTitle>Manage Categories</CardTitle>
+                                <CardDescription>Drag, drop, and edit to organize your category hierarchy.</CardDescription>
+                            </div>
+                            <div className="flex gap-2 self-end sm:self-auto">
+                                <Button onClick={handleDiscardChanges} disabled={!isDirty || isSaving} variant="outline">
+                                    <Undo className="mr-2 h-4 w-4" /> Discard
+                                </Button>
+                                <Button onClick={handleApplyChanges} disabled={!isDirty || isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Apply Changes
+                                </Button>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {workingCategories.map(category => (
+                            <CategoryItem
+                                key={category.id}
+                                category={category}
+                                settings={settings}
+                                moveCategory={moveCategory}
+                                findCategory={findCategory}
+                                onUpdate={handleUpdateCategory}
+                                onDelete={handleDeleteCategory}
+                                onStartEdit={handleStartEdit}
+                                onCancelEdit={handleCancelEdit}
+                                editingCategory={editingCategory}
+                                setEditingCategory={setEditingCategory}
+                            />
+                        ))}
+                    </CardContent>
+                </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Add New Category</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleCreateCategory} className="space-y-4">
+                                <Input type="text" placeholder="Category Name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+                                <Textarea placeholder="Description (optional)" value={newCategoryDescription} onChange={(e) => setNewCategoryDescription(e.target.value)} />
+                                <IconPicker
+                                    value={newCategoryIcon}
+                                    onChange={setNewCategoryIcon}
+                                    placeholder="Select an icon (optional)"
+                                />
+                                <Select onValueChange={(value) => setNewCategoryParent(value === "null" ? null : value)} value={newCategoryParent || 'null'}>
+                                    <SelectTrigger><SelectValue placeholder="Select Parent (optional)" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="null">None (Top Level)</SelectItem>
+                                        {flatCategoryList.filter(c => c.level < settings.maxDepth - 1).map(cat => (
+                                            <SelectItem key={cat.id} value={cat.id} style={{ paddingLeft: `${cat.level * 20 + 20}px` }}>{cat.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button type="submit" disabled={!newCategoryName.trim()} className="w-full"><Plus className="mr-2 h-4 w-4"/> Add Category</Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Settings</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="max-depth">Max Category Depth</Label>
+                                <Input id="max-depth" type="number" min={currentMaxDepth} value={newMaxDepth || ''} onChange={(e) => setNewMaxDepth(parseInt(e.target.value, 10) || 1)} />
+                                {settingsError && <p className="text-sm text-red-500">{settingsError}</p>}
+                            </div>
+                            <Button onClick={handleUpdateSettings} disabled={isSavingSettings} className="w-full">{isSavingSettings ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save Settings</Button>
+                            <Alert>
+                                <Info className="h-4 w-4" />
+                                <AlertDescription>
+                                    The current category structure is <strong>{currentMaxDepth}</strong> levels deep. To lower the maximum depth, you must first rearrange the categories into a shallower structure.
+                                </AlertDescription>
+                            </Alert>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
-          )}
-
-          <div className='flex items-center'>
-            {isEditing ? (
-              <>
-                <Button
-                  onClick={() => handleSaveEdit(category.id)}
-                  variant='ghost'
-                  size='sm'
-                  className="mr-2 w-16"
-                >
-                  Save
-                </Button>
-                <Button
-                  onClick={handleCancelEdit}
-                  variant='ghost'
-                  size='sm'
-                  className="w-16"
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-                <div className="flex justify-end gap-2">
-                    <Button
-                    onClick={() => handleStartEdit(category)}
-                    variant='outline'
-                    size='xs'
-                    className="w-16"
-                    >
-                    Edit
-                    </Button>
-                    <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size='xs' className="w-16">Delete</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This will permanently delete the category &quot;{category.name}&quot; and move all its children to the top level.
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(category.id)}>Continue</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-            )}
-          </div>
-        </div>
-        {category.children.map(renderCategory)}
-      </div>
+        </DndProvider>
     );
-  };
-
-  if (loading) {
-    return <div>Loading categories...</div>;
-  }
-
-  return (
-    <div>
-        <Card className="mb-6">
-            <CardHeader>
-                <CardTitle>Category Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div>
-                    <div className="flex items-center">
-                        <label htmlFor="maxDepth" className="block text-sm font-medium mr-2">Max Category Depth</label>
-                        <Input
-                            type="number"
-                            id="maxDepth"
-                            value={newMaxDepth}
-                            onChange={(e) => {
-                                setSettingsError(null);
-                                setNewMaxDepth(parseInt(e.target.value, 10));
-                            }}
-                            className="w-20"
-                        />
-                        <Button
-                            onClick={handleUpdateSettings}
-                            disabled={isSaving || showSuccess}
-                            className="ml-4"
-                        >
-                            {isSaving ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-                            ) : showSuccess ? (
-                                <><Check className="mr-2 h-4 w-4" /> Saved!</>
-                            ) : (
-                                'Save Settings'
-                            )}
-                        </Button>
-                    </div>
-                    {settingsError && (
-                        <p className="mt-2 text-sm text-red-600">{settingsError}</p>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-
-      {showCreateForm && (
-        <Card className="mb-4">
-            <CardHeader>
-                <CardTitle>Create New Category</CardTitle>
-            </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreateCategory}>
-              <div className="mb-4">
-                <label htmlFor="categoryName" className="block text-sm font-medium mb-1">Category Name</label>
-                <Input
-                  type="text"
-                  id="categoryName"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="categoryIcon" className="block text-sm font-medium mb-1">Category Icon</label>
-                <Input
-                  type="text"
-                  id="categoryIcon"
-                  value={newCategoryIcon}
-                  onChange={(e) => setNewCategoryIcon(e.target.value)}
-                />
-              </div>
-              <div className="mb-4">
-                <label htmlFor="parentCategory" className="block text-sm font-medium mb-1">Parent Category</label>
-                <Select onValueChange={(value) => setNewCategoryParent(value === "null" ? null : value)} value={newCategoryParent || 'null'}>
-                    <SelectTrigger>
-                    <SelectValue placeholder="None (Top Level)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    <SelectItem value="null">None (Top Level)</SelectItem>
-                    {filteredCategoryList.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                        {' '.repeat(cat.level * 4)}
-                        {cat.name}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-              </div>
-              <Button
-                type="submit"
-                disabled={!newCategoryName.trim()}
-              >
-                Create Category
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>Manage Categories</CardTitle>
-                    <Button
-                        onClick={() => setShowCreateForm(!showCreateForm)}
-                    >
-                        {showCreateForm ? 'Cancel' : 'Add New Category'}
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {hierarchicalCategories.map(renderCategory)}
-            </CardContent>
-        </Card>
-    </div>
-  );
 };
 
 export default CategoriesPage;

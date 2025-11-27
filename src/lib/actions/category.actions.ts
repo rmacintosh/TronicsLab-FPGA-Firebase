@@ -1,3 +1,4 @@
+
 'use server';
 
 import { adminFirestore } from '@/firebase/admin';
@@ -5,6 +6,18 @@ import { Category } from '@/lib/server-types';
 import { revalidatePath } from 'next/cache';
 import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
 import { verifyAdmin } from '@/lib/auth-utils';
+
+// Helper function to create a sanitized category object for Firestore.
+function sanitizeCategory(category: Partial<Category>): Omit<Category, 'id' | 'articleCount'> {
+    const { name, slug, parentId, description, icon } = category;
+    return {
+        name: name || '',
+        slug: slug || '',
+        parentId: parentId !== undefined ? parentId : null,
+        description: description || '',
+        icon: icon || '',
+    };
+}
 
 interface CategorySettings {
     maxDepth: number;
@@ -114,27 +127,32 @@ async function getCategoryDepth(categoryId: string, db: Firestore): Promise<numb
     return depth;
 }
 
-export async function createCategoryAction(authToken: string, name: string, parentId: string | null, icon?: string): Promise<{ success: boolean, message: string, id?: string }> {
+export async function createCategoryAction(authToken: string, category: Partial<Category>): Promise<{ success: boolean, message: string, id?: string }> {
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
     }
 
   try {
-    if (!name.trim()) {
+    if (!category.name || !category.name.trim()) {
         return { success: false, message: 'Category name cannot be empty.' };
     }
 
     const { maxDepth } = await getCategorySettings();
         
-    if (parentId) {
-        const parentDepth = await getCategoryDepth(parentId, adminFirestore);
+    if (category.parentId) {
+        const parentDepth = await getCategoryDepth(category.parentId, adminFirestore);
         if (parentDepth >= maxDepth) {
             return { success: false, message: `Cannot create category. The maximum depth of ${maxDepth} has been reached.` };
         }
     }
+    
+    const newCategoryData = {
+        ...sanitizeCategory(category),
+        articleCount: 0, // Always initialize with 0 articles
+    };
 
-    const docRef = await adminFirestore.collection('categories').add({ name, parentId, icon });
+    const docRef = await adminFirestore.collection('categories').add(newCategoryData);
     revalidatePath('/admin/categories');
     return { success: true, message: 'Category created successfully.', id: docRef.id };
   } catch (error) {
@@ -143,8 +161,9 @@ export async function createCategoryAction(authToken: string, name: string, pare
   }
 }
 
-const getAllCategories = async (): Promise<Category[]> => {
-    const querySnapshot = await adminFirestore.collection('categories').get();
+const getAllCategories = async (transaction?: Transaction): Promise<Category[]> => {
+    const collectionRef = adminFirestore.collection('categories');
+    const querySnapshot = transaction ? await transaction.get(collectionRef) : await collectionRef.get();
     return querySnapshot.docs.map((doc: QueryDocumentSnapshot) => ({
         id: doc.id,
         ...doc.data()
@@ -160,7 +179,7 @@ const getAllDescendantIds = (categoryId: string, allCategories: Category[]): str
     return descendantIds;
 };
 
-export async function updateCategoryAction(authToken: string, categoryId: string, newName: string, newParentId: string | null, newIcon?: string): Promise<{ success: boolean, message: string }> {
+export async function updateCategoryAction(authToken: string, categoryId: string, category: Partial<Category>): Promise<{ success: boolean, message: string }> {
     const { isAdmin, error } = await verifyAdmin(authToken);
     if (!isAdmin) {
         return { success: false, message: error || 'Authorization failed.' };
@@ -168,24 +187,22 @@ export async function updateCategoryAction(authToken: string, categoryId: string
 
     try {
         await adminFirestore.runTransaction(async (transaction: Transaction) => {
-            if (newParentId) {
-                if (categoryId === newParentId) {
+            if (category.parentId) {
+                if (categoryId === category.parentId) {
                     throw new Error("A category cannot be its own parent.");
                 }
                 const categoriesSnapshot = await transaction.get(adminFirestore.collection('categories'));
                 const allCategories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
 
                 const descendantIds = getAllDescendantIds(categoryId, allCategories);
-                if (descendantIds.includes(newParentId)) {
+                if (descendantIds.includes(category.parentId)) {
                     throw new Error("A category cannot be moved to be a child of its own descendant.");
                 }
             }
 
+            const updateData = sanitizeCategory(category);
+
             const categoryRef = adminFirestore.collection('categories').doc(categoryId);
-            const updateData: { [key: string]: any } = { name: newName, parentId: newParentId };
-            if (newIcon) {
-                updateData.icon = newIcon;
-            }
             transaction.update(categoryRef, updateData);
         });
 
@@ -206,6 +223,17 @@ export async function deleteCategoryAction(authToken: string, categoryId: string
 
     try {
         await adminFirestore.runTransaction(async (transaction: Transaction) => {
+            const categoryToDeleteRef = adminFirestore.collection('categories').doc(categoryId);
+            const categorySnap = await transaction.get(categoryToDeleteRef);
+            if (!categorySnap.exists) {
+                throw new Error("Category not found.");
+            }
+
+            const categoryData = categorySnap.data() as Category;
+            if (categoryData.articleCount && categoryData.articleCount > 0) {
+                throw new Error("Cannot delete a category that contains articles. Please move the articles to another category first.");
+            }
+
             const childrenSnapshot = await transaction.get(
                 adminFirestore.collection('categories').where('parentId', '==', categoryId)
             );
@@ -214,7 +242,6 @@ export async function deleteCategoryAction(authToken: string, categoryId: string
                 transaction.update(childDoc.ref, { parentId: newParentIdForChildren });
             });
 
-            const categoryToDeleteRef = adminFirestore.collection('categories').doc(categoryId);
             transaction.delete(categoryToDeleteRef);
         });
 
@@ -222,6 +249,59 @@ export async function deleteCategoryAction(authToken: string, categoryId: string
         return { success: true, message: 'Category deleted and children reassigned successfully.' };
     } catch (error: any) {
         console.error('Error deleting category:', error);
+        return { success: false, message: error.message || 'An unknown error occurred.' };
+    }
+}
+
+export async function batchUpdateCategoriesAction(token: string, initialCategories: Category[], workingCategories: Category[]) {
+    const { isAdmin, error } = await verifyAdmin(token);
+    if (!isAdmin) {
+        return { success: false, message: error || 'Authorization failed.' };
+    }
+
+    try {
+        await adminFirestore.runTransaction(async (transaction) => {
+            const dbCategories = await getAllCategories(transaction);
+            const dbCategoriesMap = new Map(dbCategories.map(c => [c.id, c]));
+
+            const initialIds = new Set(initialCategories.map(c => c.id));
+            const workingIds = new Set(workingCategories.map(c => c.id));
+
+            for (const id of initialIds) {
+                if (!workingIds.has(id)) {
+                    const categoryToDelete = dbCategoriesMap.get(id);
+                    if (categoryToDelete && categoryToDelete.articleCount && categoryToDelete.articleCount > 0) {
+                        throw new Error(`Cannot delete category "${categoryToDelete.name}" because it contains articles. Please move them first.`);
+                    }
+                    transaction.delete(adminFirestore.collection('categories').doc(id));
+                }
+            }
+
+            for (const category of workingCategories) {
+                const ref = adminFirestore.collection('categories').doc(category.id);
+                const sanitizedData = sanitizeCategory(category);
+
+                const existingCategory = dbCategoriesMap.get(category.id);
+                if (existingCategory) {
+                    // Preserve existing articleCount on update
+                    transaction.set(ref, { 
+                        ...sanitizedData,
+                        articleCount: existingCategory.articleCount 
+                    });
+                } else {
+                    // Initialize articleCount for new categories
+                    transaction.set(ref, { 
+                        ...sanitizedData, 
+                        articleCount: 0 
+                    });
+                }
+            }
+        });
+
+        revalidatePath('/admin/categories');
+        return { success: true, message: 'Categories updated successfully.' };
+    } catch (error: any) {
+        console.error('Error in batchUpdateCategoriesAction:', error);
         return { success: false, message: error.message || 'An unknown error occurred.' };
     }
 }

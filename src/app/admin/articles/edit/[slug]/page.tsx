@@ -46,10 +46,6 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
     const [isImageRemoved, setIsImageRemoved] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
-    const initialCategoryId = useMemo(() => {
-        return categories.find(c => c.name === article.category)?.id || "";
-    }, [article.category, categories]);
-
     const form = useForm<z.infer<typeof articleSchema>>({
         resolver: zodResolver(articleSchema),
         mode: 'onChange',
@@ -58,7 +54,7 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             description: article.description,
             content: article.content,
             imageHint: article.image?.imageHint || "",
-            categoryId: initialCategoryId,
+            categoryId: article.categoryId, // Directly use the correct categoryId from the article
         },
     });
 
@@ -346,7 +342,7 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
                                             </Select>
                                         ) : (
                                             <FormControl>
-                                                <Input value={selectedCategory?.name || ''} disabled />
+                                                <Input value={selectedCategory?.name || article.categoryName} disabled />
                                             </FormControl>
                                         )}
                                         <FormMessage />
