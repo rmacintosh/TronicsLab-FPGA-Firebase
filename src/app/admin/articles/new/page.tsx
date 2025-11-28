@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -15,9 +16,9 @@ import { useFirebase } from '@/firebase/provider';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Category } from '@/lib/server-types';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import Image from 'next/image';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { uploadImage, deleteImage } from '@/lib/image-upload';
 import { getFirestore, doc, collection } from 'firebase/firestore';
 
@@ -42,6 +43,7 @@ export default function NewArticlePage() {
   
   const [uploadedImage, setUploadedImage] = useState<{ imageId: string; previewUrl: string; file: File } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof articleSchema>>({
     resolver: zodResolver(articleSchema),
@@ -263,34 +265,48 @@ export default function NewArticlePage() {
             />
             <FormItem>
                 <FormLabel>Article Image</FormLabel>
-                {uploadedImage ? (
-                    <div className="relative w-fit">
-                        <Image
-                            src={uploadedImage.previewUrl}
-                            alt="Article preview"
-                            width={200}
-                            height={100}
-                            className="rounded-md object-cover"
-                        />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-0 right-0"
-                            onClick={handleRemoveImage}
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                ) : (
-                    <FormControl>
-                        <Input 
+                <FormControl>
+                    <div>
+                        <Input
                             type="file"
                             accept="image/*"
                             onChange={handleImageChange}
+                            className="hidden"
+                            ref={fileInputRef}
                             disabled={isUploading}
                         />
-                    </FormControl>
-                )}
+                        {uploadedImage ? (
+                            <div className="relative w-48 h-24">
+                                <Image
+                                    src={uploadedImage.previewUrl}
+                                    alt="Article preview"
+                                    fill
+                                    className="rounded-md object-cover"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                                    onClick={handleRemoveImage}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-48 h-24 flex flex-col items-center justify-center gap-2 border-dashed"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                            >
+                                <Plus className="h-6 w-6 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Add Image</span>
+                            </Button>
+                        )}
+                    </div>
+                </FormControl>
                 <FormMessage />
             </FormItem>
 
