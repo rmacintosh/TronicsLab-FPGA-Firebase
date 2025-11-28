@@ -9,12 +9,13 @@ service cloud.firestore {
     match /articles/{articleId} {
       allow get, list: if true;
       allow create: if 'admin' in request.auth.token.roles || 'author' in request.auth.token.roles;
-      allow update, delete: if ('admin' in request.auth.token.roles) || (request.auth.uid == resource.data.authorId && 'author' in request.auth.token.roles);
+      allow update, delete: if ('admin' in request.auth.token.roles) || (resource.data.authorId != null && request.auth.uid == resource.data.authorId);
     }
 
     // Categories can be read by anyone.
     match /categories/{categoryId} {
       allow get, list: if true;
+      allow write: if 'admin' in request.auth.token.roles;
     }
     
     // Comments can be read by anyone, created by any authenticated user, but only managed by admins or moderators.
@@ -36,10 +37,14 @@ service cloud.firestore {
 
     // Rules for the 'images' collection
     match /images/{imageId} {
-      // Admins can read any image document. Others can only read their own.
-      allow get: if request.auth != null && (('admin' in request.auth.token.roles) || (resource.data.userId == request.auth.uid));
-      // Admins can create image documents for any user. Authors can only create them for themselves.
-      allow create: if request.auth != null && (('admin' in request.auth.token.roles) || ('author' in request.auth.token.roles && request.resource.data.userId == request.auth.uid));
+      // Allow reading of image documents by anyone, as they contain public URLs.
+      allow get: if true;
+      // Allow creation by authenticated authors/admins.
+      allow create: if request.auth != null && ('author' in request.auth.token.roles || 'admin' in request.auth.token.roles);
+      // Allow updates by the system (for processing) or by the image owner/admin.
+      allow update: if request.auth != null && (resource.data.userId == request.auth.uid || 'admin' in request.auth.token.roles);
+      // Allow deletion only by the owner or an admin.
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || 'admin' in request.auth.token.roles);
     }
 
     // Settings can only be accessed by admins.
