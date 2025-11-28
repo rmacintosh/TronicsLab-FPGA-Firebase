@@ -1,0 +1,24 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Public read access for permanent images and content.
+    match /images/{userId}/{imageId}/{allPaths=**} {
+      allow read;
+    }
+    match /images/content/{allPaths=**} {
+        allow read;
+    }
+
+    // Allow authenticated users to write ONLY to their own temp directory.
+    // This is the key change to fix the upload permission issue.
+    match /images/temp/{userId}/{imageId}/{fileName} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow read on temp images for the owner during the upload process.
+     match /images/temp/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
