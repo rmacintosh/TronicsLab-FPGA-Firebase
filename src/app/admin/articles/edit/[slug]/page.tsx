@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TiptapEditor from "@/components/tiptap-editor";
 import { useData } from "@/components/providers/data-provider";
-import { useFirebase, useStorage } from "@/firebase/provider";
+import { useFirebase } from "@/firebase/provider";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Category, Article } from "@/lib/types";
@@ -19,7 +19,8 @@ import { useMemo, useState, use, useEffect } from "react";
 import { updateArticleAction } from "@/lib/actions/article.actions";
 import Image from 'next/image';
 import { X } from 'lucide-react';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { uploadImage, deleteImage } from '@/lib/image-upload';
+import { getFirestore, doc, collection } from 'firebase/firestore';
 
 const articleSchema = z.object({
   title: z.string().min(10, "Title must be at least 10 characters"),
@@ -35,16 +36,16 @@ interface HierarchicalCategory extends Category {
 }
 
 function EditArticleForm({ article, categories, isAdmin }: { article: Article; categories: Category[], isAdmin: boolean }) {
-    const { refreshData } = useData();
+    const { refreshData, updateArticle } = useData();
     const { user } = useFirebase();
-    const storage = useStorage();
     const router = useRouter();
     const { toast } = useToast();
     
     const [imagePreview, setImagePreview] = useState<string | null>(article.image?.imageUrl || null);
-    const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+    const [uploadedImage, setUploadedImage] = useState<{ imageId: string, previewUrl: string, file: File } | null>(null);
     const [isImageRemoved, setIsImageRemoved] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const originalImageId = article.image?.id; // Keep track of the original image
 
     const form = useForm<z.infer<typeof articleSchema>>({
         resolver: zodResolver(articleSchema),
@@ -54,9 +55,18 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             description: article.description,
             content: article.content,
             imageHint: article.image?.imageHint || "",
-            categoryId: article.categoryId, // Directly use the correct categoryId from the article
+            categoryId: article.categoryId,
         },
     });
+
+    useEffect(() => {
+      // Cleanup for object URLs
+      return () => {
+        if (uploadedImage?.previewUrl) {
+          URL.revokeObjectURL(uploadedImage.previewUrl);
+        }
+      };
+    }, [uploadedImage]);
 
     const selectedCategoryId = form.watch('categoryId');
     const selectedCategory = useMemo(() => 
@@ -68,43 +78,61 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
         if (!file || !user) return;
 
         setIsUploading(true);
-        toast({ title: "Uploading Image...", description: "Please wait while the image is uploaded." });
+        const { id, update } = toast({ title: "Uploading Image..." });
 
         try {
-            const storageRef = ref(storage, `images/${user.uid}/${Date.now()}-${file.name}`);
-            const uploadTask = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(uploadTask.ref);
+            // If there's an old image (either original or a newly uploaded one), delete it first
+            if (imagePreview) {
+                const imageIdToDelete = uploadedImage?.imageId || originalImageId;
+                if (imageIdToDelete) {
+                    await deleteImage(imageIdToDelete);
+                }
+            }
 
-            setImagePreview(downloadURL);
-            setUploadedImageUrl(downloadURL);
+            const db = getFirestore();
+            const imageRef = doc(collection(db, 'images'));
+            const imageId = imageRef.id;
+
+            await uploadImage(file, user.uid, imageId);
+
+            const previewUrl = URL.createObjectURL(file);
+            setUploadedImage({ imageId, previewUrl, file });
+            setImagePreview(previewUrl);
             setIsImageRemoved(false);
-            toast({ title: "Image Uploaded!", description: "The image has been successfully uploaded." });
+
+            update({ id, title: "Image Uploaded!", description: "The image is ready." });
         } catch (error) {
             console.error("Image upload error:", error);
-            toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload the image." });
+            update({ id, variant: "destructive", title: "Upload Failed", description: "Could not upload the image." });
         } finally {
             setIsUploading(false);
         }
     };
 
     const handleRemoveImage = async () => {
-        if (uploadedImageUrl) {
+        const imageIdToDelete = uploadedImage?.imageId || originalImageId;
+
+        if (imageIdToDelete) {
             try {
-                const imageRef = ref(storage, uploadedImageUrl);
-                await deleteObject(imageRef);
-                toast({ title: "Image Removed", description: "The uploaded image has been removed." });
+                await deleteImage(imageIdToDelete);
+                toast({ title: "Image Removed" });
             } catch (error) {
                 console.error("Error deleting image:", error);
                 toast({
                     variant: "destructive",
                     title: "Error Removing Image",
-                    description: "Could not remove the uploaded image from storage.",
+                    description: "Could not remove the image from storage.",
                 });
+                return; // Stop if deletion fails
             }
+        }
+
+        if (uploadedImage?.previewUrl) {
+            URL.revokeObjectURL(uploadedImage.previewUrl);
         }
         
         setImagePreview(null);
-        setUploadedImageUrl(null);
+        setUploadedImage(null);
         setIsImageRemoved(true);
         form.setValue('imageHint', ''); 
     };
@@ -115,51 +143,46 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             return;
         }
 
-        try {
-            const authToken = await user.getIdToken();
+        const updatePayload: { [key: string]: any } = {
+            description: values.description,
+            content: values.content,
+        };
+        
+        if (isAdmin) {
+            updatePayload.title = values.title;
+            updatePayload.categoryId = values.categoryId;
+        }
 
-            const updatePayload: { [key: string]: any } = {
-                description: values.description,
-                content: values.content,
+        // Case 1: A new image was uploaded in this session.
+        if (uploadedImage) {
+            updatePayload.image = {
+                id: uploadedImage.imageId,
+                imageHint: values.imageHint || '',
+                imageUrl: '', // This triggers the listener on the article page
             };
-            
-            if (isAdmin) {
-                updatePayload.title = values.title;
-                updatePayload.categoryId = values.categoryId;
-            }
-
-            if (uploadedImageUrl) {
-                // Case 1: A new image was uploaded in this session
-                updatePayload.image = {
-                    id: article.image?.id || 'img-' + Date.now(),
-                    imageUrl: uploadedImageUrl,
-                    imageHint: values.imageHint || '',
-                };
-            } else if (isImageRemoved) {
-                // Case 2: The existing image was removed
-                updatePayload.image = null;
-            } else if (article.image && values.imageHint !== article.image.imageHint) {
-                // Case 3: Only the image hint was changed
-                updatePayload.image = {
-                    ...article.image,
-                    imageHint: values.imageHint || '',
-                };
-            }
-            
-            const result = await updateArticleAction(authToken, article.id, updatePayload as any);
+        } 
+        // Case 2: The existing image was removed.
+        else if (isImageRemoved) {
+            updatePayload.image = null;
+        } 
+        // Case 3: Only the image hint was changed for the existing image.
+        else if (originalImageId && values.imageHint !== article.image.imageHint) {
+            updatePayload.image = {
+                ...article.image,
+                imageHint: values.imageHint || '',
+            };
+        }
+        
+        try {
+            const result = await updateArticle(article.id, updatePayload);
 
             if (result.success) {
                 toast({ title: "Article Updated!", description: "The article has been successfully updated." });
                 refreshData();
                 router.push(`/admin/articles`);
             } else {
-                toast({
-                    variant: "destructive",
-                    title: "Error Updating Article",
-                    description: result.message || "An unexpected error occurred.",
-                });
+                throw new Error(result.message);
             }
-
         } catch (error: any) {
             toast({
                 variant: "destructive",
@@ -211,12 +234,6 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
         return options;
     };
     
-    useEffect(() => {
-        if (isImageRemoved) {
-          form.setValue('imageHint', '');
-        }
-      }, [isImageRemoved, form]);
-
     return (
         <Card>
             <CardHeader>
@@ -265,6 +282,7 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
                                         className="rounded-md object-cover"
                                     />
                                     <Button
+                                        type="button"
                                         variant="ghost"
                                         size="icon"
                                         className="absolute top-0 right-0"

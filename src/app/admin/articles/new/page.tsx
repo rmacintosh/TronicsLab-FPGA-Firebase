@@ -56,6 +56,7 @@ export default function NewArticlePage() {
   });
 
   useEffect(() => {
+    // Cleanup function to revoke the object URL to avoid memory leaks
     return () => {
       if (uploadedImage?.previewUrl) {
         URL.revokeObjectURL(uploadedImage.previewUrl);
@@ -72,14 +73,20 @@ export default function NewArticlePage() {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
+    // If there's an old image, delete it first
+    if (uploadedImage) {
+        await handleRemoveImage();
+    }
+
     setIsUploading(true);
     const { id, update } = toast({ title: 'Uploading Image...' });
 
     try {
       const db = getFirestore();
-      const imageRef = doc(collection(db, 'images'));
+      const imageRef = doc(collection(db, 'images')); // Generate new ID locally
       const imageId = imageRef.id;
 
+      // The uploadImage function now uploads to a temp path
       await uploadImage(file, user.uid, imageId);
 
       const previewUrl = URL.createObjectURL(file);
@@ -102,6 +109,7 @@ export default function NewArticlePage() {
   const handleRemoveImage = async () => {
     if (uploadedImage) {
         try {
+            // Call the cloud function to delete the image set from storage and firestore
             await deleteImage(uploadedImage.imageId);
             toast({ title: 'Image Removed', description: 'The uploaded image has been removed.' });
             
@@ -133,6 +141,7 @@ export default function NewArticlePage() {
     try {
       const slug = values.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
 
+      // The `createArticle` action now handles associating the image ID
       const result = await createArticle({
         slug,
         title: values.title,
@@ -142,10 +151,8 @@ export default function NewArticlePage() {
         image: {
             id: uploadedImage.imageId, 
             imageHint: values.imageHint || '',
-            imageUrl: '', // Not needed, server handles it
-            thumbUrl: '', // Not needed, server handles it
-            mediumUrl: '', // Not needed, server handles it
-            largeUrl: '', // Not needed, server handles it
+            // These are not needed on the client, will be populated on the server
+            imageUrl: '', 
             fileName: uploadedImage.file.name,
         },
     });
@@ -153,6 +160,8 @@ export default function NewArticlePage() {
       if (result.success && result.slug) {
         toast({ title: 'Article Created!', description: 'The article has been successfully created.' });
         refreshData();
+        // The new article is created, the image processing is now handled by cloud functions
+        // and the article page itself will listen for the final image URLs.
         router.push(`/admin/articles`);
       } else {
         toast({
@@ -160,6 +169,8 @@ export default function NewArticlePage() {
             title: 'Error Creating Article',
             description: result.message || 'An unexpected error occurred.',
         });
+        // If article creation fails, we should delete the orphaned uploaded image
+        await handleRemoveImage();
       }
 
     } catch (error: any) {
@@ -168,6 +179,8 @@ export default function NewArticlePage() {
         title: 'Error Creating Article',
         description: error.message || 'An unexpected error occurred.',
       });
+       // If an error is caught, we should delete the orphaned uploaded image
+      await handleRemoveImage();
     }
   }
   

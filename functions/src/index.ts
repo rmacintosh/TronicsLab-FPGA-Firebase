@@ -10,6 +10,7 @@ import * as fs from "fs";
 import sharp from "sharp";
 import {defineString} from "firebase-functions/params";
 import { Category } from "./server-types";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -29,7 +30,6 @@ async function getPermanentSignedUrl(filePath: string, bucketName: string): Prom
     return url;
 }
 
-// FINAL, CORRECTED VERSION: Fixes the ENOENT race condition.
 export const generateThumbnails = onObjectFinalized({
     cpu: 2,
     bucket: storageBucket, 
@@ -43,8 +43,8 @@ export const generateThumbnails = onObjectFinalized({
     if (!contentType || !contentType.startsWith("image/")) {
         return logger.log("This is not an image.");
     }
-
-    // This check is now robust because we remove the isTemp flag after processing.
+    
+    // This is the crucial check. Only process images with the `isTemp` flag.
     if (!metadata || metadata.isTemp !== 'true') {
         return logger.log(`File is not a temporary upload, skipping: ${filePath}`);
     }
@@ -61,8 +61,6 @@ export const generateThumbnails = onObjectFinalized({
         return logger.error("Missing userId or imageId in metadata for:", filePath);
     }
     
-    // --- THIS IS THE FIX ---
-    // Use the unique event ID to create a unique temporary file path for each execution.
     const tempFilePath = path.join(os.tmpdir(), `${event.id}-${fileName}`);
 
     try {
@@ -82,6 +80,7 @@ export const generateThumbnails = onObjectFinalized({
     const resizedPaths: { [key: string]: string } = {};
     const uploadPromises = Object.entries(sizes).map(([name, width]) => {
         const newFileName = `${path.parse(fileName).name}_${name}${path.parse(fileName).ext}`;
+        // Permanent path does not include 'articles' as it's not tied to one yet
         const newFilePath = `images/${userId}/${imageId}/${newFileName}`;
         resizedPaths[name] = newFilePath;
         return sharp(tempFilePath).resize({ width }).toBuffer()
@@ -95,12 +94,11 @@ export const generateThumbnails = onObjectFinalized({
         return logger.error("Failed to upload resized images:", error);
     }
     
-    // Move original image and then remove the isTemp flag to prevent re-triggering.
+    // Move original image and remove the isTemp flag
     const permanentOriginalPath = `images/${userId}/${imageId}/${fileName}`;
     try {
         await bucket.file(filePath).move(permanentOriginalPath);
-        // --- THIS IS THE FIX --- 
-        // Remove the metadata flag to prevent the function from re-triggering itself.
+        // Remove the isTemp flag to prevent re-triggering.
         await bucket.file(permanentOriginalPath).setMetadata({ metadata: { isTemp: null } });
     } catch(err) {
         fs.unlinkSync(tempFilePath); // Clean up on failure
@@ -119,25 +117,26 @@ export const generateThumbnails = onObjectFinalized({
         return logger.error("Failed to generate signed URLs:", error);
     }
     
-    // Update Firestore document
+    // Update Firestore document with all info
     const imageDocData = {
         userId: userId,
-        articleId: null,
+        imageId: imageId, // Storing the imageId in the doc
+        articleId: null, // Not associated with an article yet
         createdAt: new Date(),
         permanentPaths: { original: permanentOriginalPath, ...resizedPaths },
         permanentUrls,
-        processingComplete: true,
+        processingComplete: true, // Flag that processing is done
     };
     try {
-        await db.collection("images").doc(imageId).set(imageDocData);
+        // The client creates the doc, this function just updates it.
+        await db.collection("images").doc(imageId).set(imageDocData, { merge: true });
     } catch (error) {
-        return logger.error("Failed to create Firestore document:", error);
+        return logger.error("Failed to update Firestore document:", error);
     }
 
     fs.unlinkSync(tempFilePath);
     logger.log(`Processing complete for imageId: ${imageId}`)
 });
-
 
 export const deleteImageSet = onCall({cors: true}, async (request) => {
     logger.log("deleteImageSet function triggered.");
@@ -163,37 +162,40 @@ export const deleteImageSet = onCall({cors: true}, async (request) => {
     const imageDoc = await imageDocRef.get();
 
     if (!imageDoc.exists) {
-        logger.error(`Image document with ID ${imageId} not found.`);
-        throw new HttpsError('not-found', "Image not found.");
+        // It's possible the image was temporary and never processed, so we check temp storage too.
+        logger.log(`Image document ${imageId} not found. Checking for temporary files.`);
     }
 
     const imageData = imageDoc.data();
-    if (!imageData) {
-        logger.error(`Image document with ID ${imageId} has no data.`);
-        throw new HttpsError('internal', "Internal server error: Image document is empty.");
-    }
     
-    if (imageData.userId !== uid && !isAdmin) {
+    // Authorization check (only if the document exists)
+    if (imageData && imageData.userId !== uid && !isAdmin) {
         logger.error(`User ${uid} is not authorized to delete image ${imageId} owned by ${imageData.userId}.`);
         throw new HttpsError('permission-denied', 'You are not authorized to delete this image.');
     }
 
     const bucket = storage.bucket(storageBucket.value());
-
+    
+    // Construct potential paths to delete
     const pathsToDelete: string[] = [];
-    if (imageData.originalPath) {
-        pathsToDelete.push(imageData.originalPath);
-    }
-    if (imageData.resizedPaths && typeof imageData.resizedPaths === 'object') {
-        Object.values(imageData.resizedPaths).forEach((p: any) => {
-            if (typeof p === 'string') {
-                pathsToDelete.push(p);
-            }
+    
+    // Case 1: Image was processed and has permanent paths
+    if (imageData?.permanentPaths) {
+        Object.values(imageData.permanentPaths).forEach((p: any) => {
+            if (typeof p === 'string') pathsToDelete.push(p);
         });
     }
 
+    // Case 2: Image was temporary and never got processed. We guess the path.
+    // The client doesn't know the file name, so we list files in the temp directory.
+    const tempPrefix = `images/temp/${uid}/${imageId}/`;
+    const [tempFiles] = await bucket.getFiles({ prefix: tempPrefix });
+    tempFiles.forEach(file => pathsToDelete.push(file.name));
+
+
     const deletePromises = pathsToDelete.map(filePath => {
         return bucket.file(filePath).delete().catch(error => {
+            // Log error but don't fail the whole function if one file fails
             logger.error(`Failed to delete file: ${filePath}`, error);
         });
     });
@@ -202,14 +204,56 @@ export const deleteImageSet = onCall({cors: true}, async (request) => {
         await Promise.all(deletePromises);
         logger.log(`Successfully deleted associated files from Storage for imageId: ${imageId}`);
     } catch(err) {
-        logger.error("Error deleting files from storage", err);
+        logger.error("Error during file deletion from storage", err);
+        // We can still proceed to delete the Firestore doc
     }
 
-    await imageDocRef.delete();
-    logger.log(`Successfully deleted Firestore document for imageId: ${imageId}`);
+    // Delete the Firestore document if it exists
+    if (imageDoc.exists) {
+        await imageDocRef.delete();
+        logger.log(`Successfully deleted Firestore document for imageId: ${imageId}`);
+    }
     
     return { success: true, message: `Image set ${imageId} deleted successfully.` };
 });
+
+
+export const cleanupTempImages = onSchedule("every 24 hours", async (event) => {
+    logger.log("Running scheduled job to clean up temporary images.");
+    const bucket = storage.bucket(storageBucket.value());
+    const tempImagesPrefix = "images/temp/";
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    try {
+        const [files] = await bucket.getFiles({ prefix: tempImagesPrefix });
+        const deletionPromises: Promise<any>[] = [];
+
+        for (const file of files) {
+            const [metadata] = await file.getMetadata();
+            const createdTime = new Date(metadata.timeCreated);
+
+            if (createdTime < twentyFourHoursAgo) {
+                logger.log(`Deleting old temporary file: ${file.name}`);
+                deletionPromises.push(file.delete());
+
+                // Also delete the corresponding Firestore document if it exists
+                const pathParts = file.name.split('/'); // images/temp/userId/imageId/fileName.jpg
+                if (pathParts.length >= 4) {
+                    const imageId = pathParts[3];
+                    const imageDocRef = db.collection('images').doc(imageId);
+                    deletionPromises.push(imageDocRef.delete().catch(e => logger.warn(`Failed to delete orphaned doc ${imageId}: ${e.message}`)));
+                }
+            }
+        }
+
+        await Promise.all(deletionPromises);
+        logger.log("Temporary image cleanup job completed.");
+
+    } catch (error) {
+        logger.error("Error during temporary image cleanup:", error);
+    }
+});
+
 
 interface UpdateData {
     changedCategories: Category[];
