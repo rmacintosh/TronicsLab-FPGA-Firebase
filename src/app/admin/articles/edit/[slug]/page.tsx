@@ -426,3 +426,5 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
 
     return <EditArticleForm article={article} categories={categories} isAdmin={isAdmin} />;
 }
+
+    

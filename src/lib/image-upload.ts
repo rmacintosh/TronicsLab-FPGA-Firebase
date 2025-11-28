@@ -1,3 +1,4 @@
+
 'use client';
 
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -35,7 +36,7 @@ export const uploadImage = async (
       processingComplete: false,
     });
     
-    // CORRECTED: The customMetadata property should be at the top level of the metadata object.
+    // The customMetadata property should be at the top level of the metadata object.
     const metadata = {
       customMetadata: {
         userId,
@@ -90,3 +91,5 @@ export const deleteImage = async (imageId: string): Promise<void> => {
     throw new Error("Failed to delete image set.");
   }
 };
+
+    

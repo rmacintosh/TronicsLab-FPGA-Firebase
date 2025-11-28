@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -141,3 +142,5 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
     </div>
   );
 }
+
+    
