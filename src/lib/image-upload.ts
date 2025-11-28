@@ -1,6 +1,6 @@
 'use client';
 
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 
@@ -63,8 +63,8 @@ export const uploadContentImage = async (file: File): Promise<string> => {
     const permanentPath = `images/content/${Date.now()}-${file.name}`;
     const storageRef = ref(storage, permanentPath);
 
-    const uploadTask = await uploadBytes(storageRef, file);
-    const downloadURL = await uploadTask.ref.getDownloadURL();
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
     
     return downloadURL;
 };
