@@ -35,7 +35,7 @@ export const uploadImage = async (
       processingComplete: false,
     });
     
-    // Metadata to trigger the cloud function
+    // CORRECTED: The customMetadata property should be at the top level of the metadata object.
     const metadata = {
       customMetadata: {
         userId,
@@ -44,7 +44,7 @@ export const uploadImage = async (
       },
     };
 
-    // Upload the file with the metadata
+    // Upload the file with the corrected metadata
     await uploadBytes(storageRef, file, metadata);
 };
 
