@@ -11,7 +11,6 @@ service firebase.storage {
     }
 
     // Allow authenticated users to write ONLY to their own temp directory.
-    // This is the key change to fix the upload permission issue.
     match /images/temp/{userId}/{imageId}/{fileName} {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
