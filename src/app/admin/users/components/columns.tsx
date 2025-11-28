@@ -6,6 +6,7 @@ import { User } from "@/lib/server-types";
 import { CellAction } from "./cell-action";
 import { DataTableColumnHeader } from "@/app/admin/components/data-table-column-header";
 import { DateRange } from "react-day-picker";
+import { Badge } from "@/components/ui/badge";
 
 export const columns: ColumnDef<User>[] = [
     {
@@ -28,19 +29,22 @@ export const columns: ColumnDef<User>[] = [
     },
     {
         accessorKey: "roles",
-        header: "Roles",
+        header: "Role",
         cell: ({ row }) => {
             const roles = row.original.roles || [];
-            return <div>{roles.join(", ")}</div>;
+            // Since we enforce a single role, we can safely take the first one.
+            const role = roles[0] || 'user';
+            return <Badge variant="outline" className="capitalize">{role}</Badge>;
         },
         filterFn: (row, id, value) => {
             const userRoles = (row.getValue(id) as string[]) || [];
             const selectedRoles = value as string[];
             if (!userRoles || userRoles.length === 0 || selectedRoles.length === 0) return false;
+            // Check if any of the user's roles are in the selected filter roles.
             return selectedRoles.some(role => userRoles.includes(role));
         },
         meta: {
-            displayName: "Roles",
+            displayName: "Role",
         }
 
     },

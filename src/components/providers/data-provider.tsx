@@ -54,7 +54,7 @@ interface DataContextType {
     batchUpdateCategories: (initialCategories: Category[], workingCategories: Category[]) => Promise<{ success: boolean; message: string; }>;
     getCategorySettings: () => Promise<{ success: boolean; settings?: CategorySettings; message?: string; }>;
     updateCategorySettings: (newSettings: Partial<CategorySettings>) => Promise<{ success: boolean; message: string; }>;
-    updateUserRoles: (uid: string, roles: UserRole[]) => Promise<{ success: boolean; message: string; }>;
+    updateUserRoles: (uid: string, role: UserRole) => Promise<{ success: boolean; message: string; }>;
     deleteUser: (uid: string) => Promise<{ success: boolean; message: string; name?: string; }>;
     deleteComment: (commentId: string) => Promise<{ success: boolean; message: string; }>;
     refreshData: () => void;
@@ -240,12 +240,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return await updateCategorySettingsAction(token, newSettings);
     };
 
-    const updateUserRoles = async (uid: string, roles: UserRole[]) => {
+    const updateUserRoles = async (uid: string, role: UserRole) => {
         const auth = getAuth();
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("You must be logged in to update user roles.");
         const token = await currentUser.getIdToken();
-        return await updateUserRolesAction(token, uid, roles);
+        return await updateUserRolesAction(token, uid, role);
     };
 
     const deleteUser = async (uid: string) => {

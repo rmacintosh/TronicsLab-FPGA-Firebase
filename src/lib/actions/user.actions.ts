@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAuth, UserRecord } from 'firebase-admin/auth';
@@ -33,13 +34,16 @@ export async function getAllUsersAction(authToken: string): Promise<{ success: b
 
             // Correctly prioritize Firestore displayName, then Auth, then fallback to email.
             const displayName = (firestoreData?.displayName || userRecord.displayName) || (userRecord.email ? userRecord.email.split('@')[0] : 'Anonymous');
+            
+            // Ensure roles is always an array, defaulting to ['user']
+            const roles = firestoreData?.roles || (userRecord.customClaims?.roles ? (Array.isArray(userRecord.customClaims.roles) ? userRecord.customClaims.roles : [userRecord.customClaims.roles]) : ['user']);
 
             return {
                 uid: userRecord.uid,
                 displayName: displayName,
                 email: userRecord.email || 'N/A',
                 photoURL: userRecord.photoURL || firestoreData?.photoURL || '/default-avatar.png',
-                roles: firestoreData?.roles || userRecord.customClaims?.roles || ['user'],
+                roles: roles,
                 createdAt: userRecord.metadata.creationTime,
             };
         });
@@ -52,7 +56,7 @@ export async function getAllUsersAction(authToken: string): Promise<{ success: b
     }
 }
 
-export async function updateUserRolesAction(authToken: string, uid: string, roles: UserRole[]): Promise<{ success: boolean; message: string }> {
+export async function updateUserRolesAction(authToken: string, uid: string, role: UserRole): Promise<{ success: boolean; message: string }> {
   const { isAdmin, decodedToken, error } = await verifyAdmin(authToken);
   if (!isAdmin || !decodedToken) {
       return { success: false, message: error || 'Authorization failed.' };
@@ -60,21 +64,22 @@ export async function updateUserRolesAction(authToken: string, uid: string, role
 
   try {
     if (decodedToken.uid === uid) {
-      return { success: false, message: 'Cannot change your own roles.' };
+      return { success: false, message: 'Cannot change your own role.' };
     }
 
+    const newRoles = [role]; // Enforce a single role in an array
     const adminAuth = getAuth(getApps()[0]);
-    await adminAuth.setCustomUserClaims(uid, { roles });
+    await adminAuth.setCustomUserClaims(uid, { roles: newRoles });
 
     const userRef = adminFirestore.collection('users').doc(uid);
-    await userRef.update({ roles });
+    await userRef.update({ roles: newRoles });
 
     revalidatePath('/admin/users');
 
-    return { success: true, message: 'User roles updated successfully.' };
+    return { success: true, message: 'User role updated successfully.' };
   } catch (error: any) {
-    console.error('Error updating user roles:', error);
-    return { success: false, message: `Failed to update user roles: ${error.message}` };
+    console.error('Error updating user role:', error);
+    return { success: false, message: `Failed to update user role: ${error.message}` };
   }
 }
 
