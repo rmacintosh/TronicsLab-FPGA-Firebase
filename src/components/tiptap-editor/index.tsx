@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -76,11 +77,6 @@ const TiptapEditor = ({
         codeBlock: false, // We're disabling the default to use our custom one
       }),
       CustomImage,
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-      }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
@@ -90,7 +86,7 @@ const TiptapEditor = ({
       TableRow,
       TableHeader,
       TableCell,
-      CustomCodeBlock, // 2. Use the extended CodeBlock
+      CustomCodeBlock, // Use the extended CodeBlock
     ],
     content: '', 
     editorProps: {
