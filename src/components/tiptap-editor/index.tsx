@@ -4,8 +4,6 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { CustomImage } from './custom-image';
-import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
