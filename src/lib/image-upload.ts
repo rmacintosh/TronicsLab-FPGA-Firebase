@@ -36,14 +36,18 @@ export const uploadImage = async (
       processingComplete: false,
     });
     
-    // The customMetadata property should be at the top level of the metadata object.
     const metadata = {
       customMetadata: {
         userId,
         imageId,
-        isTemp: 'true' // This flag is crucial for the cloud function
+        isTemp: 'true'
       },
     };
+
+    // --- DEBUG LOGGING ---
+    console.log("[CLIENT DEBUG] Attempting to upload to path:", tempPath);
+    console.log("[CLIENT DEBUG] With metadata:", JSON.stringify(metadata, null, 2));
+    // --- END DEBUG LOGGING ---
 
     // Upload the file with the corrected metadata
     await uploadBytes(storageRef, file, metadata);
@@ -91,5 +95,3 @@ export const deleteImage = async (imageId: string): Promise<void> => {
     throw new Error("Failed to delete image set.");
   }
 };
-
-    

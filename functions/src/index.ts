@@ -1,3 +1,4 @@
+
 import {onObjectFinalized} from "firebase-functions/v2/storage";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {initializeApp} from "firebase-admin/app";
@@ -34,6 +35,11 @@ export const generateThumbnails = onObjectFinalized({
     cpu: 2,
     bucket: storageBucket, 
   }, async (event) => {
+
+    // --- DEBUG LOGGING ---
+    logger.log("[FUNCTION DEBUG] generateThumbnails triggered for file:", event.data.name);
+    logger.log("[FUNCTION DEBUG] File metadata:", JSON.stringify(event.data.metadata, null, 2));
+    // --- END DEBUG LOGGING ---
 
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
