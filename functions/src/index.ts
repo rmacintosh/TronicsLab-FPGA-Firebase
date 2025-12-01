@@ -36,10 +36,8 @@ export const generateThumbnails = onObjectFinalized({
     bucket: storageBucket, 
   }, async (event) => {
 
-    // --- DEBUG LOGGING ---
     logger.log("[FUNCTION DEBUG] generateThumbnails triggered for file:", event.data.name);
     logger.log("[FUNCTION DEBUG] File metadata:", JSON.stringify(event.data.metadata, null, 2));
-    // --- END DEBUG LOGGING ---
 
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
@@ -50,7 +48,6 @@ export const generateThumbnails = onObjectFinalized({
         return logger.log("This is not an image.");
     }
     
-    // This is the crucial check. Only process images with the `isTemp` flag.
     if (!metadata || metadata.isTemp !== 'true') {
         return logger.log(`File is not a temporary upload, skipping: ${filePath}`);
     }
@@ -86,7 +83,6 @@ export const generateThumbnails = onObjectFinalized({
     const resizedPaths: { [key: string]: string } = {};
     const uploadPromises = Object.entries(sizes).map(([name, width]) => {
         const newFileName = `${path.parse(fileName).name}_${name}${path.parse(fileName).ext}`;
-        // Permanent path does not include 'articles' as it's not tied to one yet
         const newFilePath = `images/${userId}/${imageId}/${newFileName}`;
         resizedPaths[name] = newFilePath;
         return sharp(tempFilePath).resize({ width }).toBuffer()
@@ -100,18 +96,15 @@ export const generateThumbnails = onObjectFinalized({
         return logger.error("Failed to upload resized images:", error);
     }
     
-    // Move original image and remove the isTemp flag
     const permanentOriginalPath = `images/${userId}/${imageId}/${fileName}`;
     try {
         await bucket.file(filePath).move(permanentOriginalPath);
-        // Remove the isTemp flag to prevent re-triggering.
         await bucket.file(permanentOriginalPath).setMetadata({ metadata: { isTemp: null } });
     } catch(err) {
         fs.unlinkSync(tempFilePath); // Clean up on failure
         return logger.error("Could not move original file or update metadata.", err);
     }
 
-    // Get permanent URLs
     const permanentUrls: { [key: string]: string } = {};
     try {
         permanentUrls['originalUrl'] = await getPermanentSignedUrl(permanentOriginalPath, fileBucket);
@@ -123,18 +116,16 @@ export const generateThumbnails = onObjectFinalized({
         return logger.error("Failed to generate signed URLs:", error);
     }
     
-    // Update Firestore document with all info
     const imageDocData = {
         userId: userId,
-        imageId: imageId, // Storing the imageId in the doc
-        articleId: null, // Not associated with an article yet
+        imageId: imageId,
+        articleId: null,
         createdAt: new Date(),
         permanentPaths: { original: permanentOriginalPath, ...resizedPaths },
         permanentUrls,
-        processingComplete: true, // Flag that processing is done
+        processingComplete: true,
     };
     try {
-        // The client creates the doc, this function just updates it.
         await db.collection("images").doc(imageId).set(imageDocData, { merge: true });
     } catch (error) {
         return logger.error("Failed to update Firestore document:", error);
@@ -168,13 +159,11 @@ export const deleteImageSet = onCall({cors: true}, async (request) => {
     const imageDoc = await imageDocRef.get();
 
     if (!imageDoc.exists) {
-        // It's possible the image was temporary and never processed, so we check temp storage too.
         logger.log(`Image document ${imageId} not found. Checking for temporary files.`);
     }
 
     const imageData = imageDoc.data();
     
-    // Authorization check (only if the document exists)
     if (imageData && imageData.userId !== uid && !isAdmin) {
         logger.error(`User ${uid} is not authorized to delete image ${imageId} owned by ${imageData.userId}.`);
         throw new HttpsError('permission-denied', 'You are not authorized to delete this image.');
@@ -182,26 +171,20 @@ export const deleteImageSet = onCall({cors: true}, async (request) => {
 
     const bucket = storage.bucket(storageBucket.value());
     
-    // Construct potential paths to delete
     const pathsToDelete: string[] = [];
     
-    // Case 1: Image was processed and has permanent paths
     if (imageData?.permanentPaths) {
         Object.values(imageData.permanentPaths).forEach((p: any) => {
             if (typeof p === 'string') pathsToDelete.push(p);
         });
     }
 
-    // Case 2: Image was temporary and never got processed. We guess the path.
-    // The client doesn't know the file name, so we list files in the temp directory.
     const tempPrefix = `images/temp/${uid}/${imageId}/`;
     const [tempFiles] = await bucket.getFiles({ prefix: tempPrefix });
     tempFiles.forEach(file => pathsToDelete.push(file.name));
 
-
     const deletePromises = pathsToDelete.map(filePath => {
         return bucket.file(filePath).delete().catch(error => {
-            // Log error but don't fail the whole function if one file fails
             logger.error(`Failed to delete file: ${filePath}`, error);
         });
     });
@@ -211,10 +194,8 @@ export const deleteImageSet = onCall({cors: true}, async (request) => {
         logger.log(`Successfully deleted associated files from Storage for imageId: ${imageId}`);
     } catch(err) {
         logger.error("Error during file deletion from storage", err);
-        // We can still proceed to delete the Firestore doc
     }
 
-    // Delete the Firestore document if it exists
     if (imageDoc.exists) {
         await imageDocRef.delete();
         logger.log(`Successfully deleted Firestore document for imageId: ${imageId}`);
@@ -236,14 +217,20 @@ export const cleanupTempImages = onSchedule("every 24 hours", async (event) => {
 
         for (const file of files) {
             const [metadata] = await file.getMetadata();
+            
+            // Fix: Check if timeCreated exists before creating a Date object.
+            if (!metadata.timeCreated) {
+                logger.warn(`File ${file.name} is missing creation time, skipping.`);
+                continue;
+            }
+
             const createdTime = new Date(metadata.timeCreated);
 
             if (createdTime < twentyFourHoursAgo) {
                 logger.log(`Deleting old temporary file: ${file.name}`);
                 deletionPromises.push(file.delete());
 
-                // Also delete the corresponding Firestore document if it exists
-                const pathParts = file.name.split('/'); // images/temp/userId/imageId/fileName.jpg
+                const pathParts = file.name.split('/');
                 if (pathParts.length >= 4) {
                     const imageId = pathParts[3];
                     const imageDocRef = db.collection('images').doc(imageId);
