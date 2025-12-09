@@ -62,9 +62,11 @@ const CustomCodeBlock = CodeBlock.extend({
 const TiptapEditor = ({
   content,
   onChange,
+  articleId,
 }: {
   content: string;
   onChange: (richText: string) => void;
+  articleId: string;
 }) => {
   const { user } = useFirebase();
   const { toast } = useToast();
@@ -102,7 +104,8 @@ const TiptapEditor = ({
               const { id, update } = toast({ title: 'Uploading image...', description: 'Your image is being uploaded.' });
               
               try {
-                const downloadURL = await uploadContentImage(file);
+                // Pass the user ID and article ID to the upload function
+                const downloadURL = await uploadContentImage(file, user.uid, articleId);
                 view.dispatch(view.state.tr.replaceSelectionWith(view.state.schema.nodes.image.create({ src: downloadURL })));
                 update({ id, title: 'Image successfully added!' });
               } catch (error) {
@@ -130,7 +133,7 @@ const TiptapEditor = ({
 
   return (
     <div className="flex flex-col gap-2 w-full">
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} articleId={articleId} />
       <EditorContent editor={editor} />
     </div>
   );

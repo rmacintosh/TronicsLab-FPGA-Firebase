@@ -8,27 +8,27 @@ service cloud.firestore {
     // Updates and deletions are limited to admins or the article's original author.
     match /articles/{articleId} {
       allow get, list: if true;
-      allow create: if 'admin' in request.auth.token.roles || 'author' in request.auth.token.roles;
-      allow update, delete: if ('admin' in request.auth.token.roles) || (resource.data.authorId != null && request.auth.uid == resource.data.authorId);
+      allow create: if request.auth.token.admin == true || request.auth.token.author == true;
+      allow update, delete: if (request.auth.token.admin == true) || (resource.data.authorId != null && request.auth.uid == resource.data.authorId);
     }
 
     // Categories can be read by anyone.
     match /categories/{categoryId} {
       allow get, list: if true;
-      allow write: if 'admin' in request.auth.token.roles;
+      allow write: if request.auth.token.admin == true;
     }
     
     // Comments can be read by anyone, created by any authenticated user, but only managed by admins or moderators.
     match /comments/{commentId} {
       allow get, list: if true;
       allow create: if request.auth != null;
-      allow update, delete: if 'admin' in request.auth.token.roles || 'moderator' in request.auth.token.roles;
+      allow update, delete: if request.auth.token.admin == true || request.auth.token.moderator == true;
     }
 
     // Rules for the 'users' collection
     match /users/{userId} {
       // Admins can list all users for the admin dashboard
-      allow list: if 'admin' in request.auth.token.roles;
+      allow list: if request.auth.token.admin == true;
       // Any authenticated user can get a single user's document
       allow get: if request.auth != null;
       // A user can only write to their own document
@@ -39,17 +39,17 @@ service cloud.firestore {
     match /images/{imageId} {
       // Allow reading of image documents by anyone, as they contain public URLs.
       allow get: if true;
-      // Allow creation by authenticated authors/admins.
-      allow create: if request.auth != null && ('author' in request.auth.token.roles || 'admin' in request.auth.token.roles);
+      // Allow creation by any authenticated user.
+      allow create: if request.auth != null && (request.auth.token.author == true || request.auth.token.admin == true);
       // Allow updates by the system (for processing) or by the image owner/admin.
-      allow update: if request.auth != null && (resource.data.userId == request.auth.uid || 'admin' in request.auth.token.roles);
+      allow update: if request.auth != null && (resource.data.userId == request.auth.uid || request.auth.token.admin == true);
       // Allow deletion only by the owner or an admin.
-      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || 'admin' in request.auth.token.roles);
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || request.auth.token.admin == true);
     }
 
     // Settings can only be accessed by admins.
     match /settings/{docId} {
-        allow read, write: if 'admin' in request.auth.token.roles;
+        allow read, write: if request.auth.token.admin == true;
     }
   }
 }

@@ -29,7 +29,7 @@ export async function makeAdminAction(authToken: string): Promise<MakeAdminOutpu
     const decodedToken = await adminAuth.verifyIdToken(authToken);
     const callingUid = decodedToken.uid;
 
-    const flowContext = { auth: { uid: callingUid, token: decodedToken } };
+    const flowContext = { auth: { uid: callingUid } };
 
     return await makeAdmin(undefined, { context: flowContext });
 

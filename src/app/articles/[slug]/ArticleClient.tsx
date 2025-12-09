@@ -26,7 +26,7 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
   const isLinking = useRef(false); // Ref to prevent multiple simultaneous calls
 
   useEffect(() => {
-    if (article.image && article.image.id && !article.image.imageUrl) {
+    if (article.image && article.image.id && !article.image.originalUrl) {
       const imageDocRef = doc(firestore, 'images', article.image.id);
 
       const unsubscribe = onSnapshot(imageDocRef, async (docSnap) => {
@@ -36,8 +36,8 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
             isLinking.current = true; // Set the flag to prevent re-entry
             console.log(`Image data received for ${article.image.id}. Linking to article...`);
 
-            const imageUrls = {
-              imageUrl: imageData.permanentUrls.originalUrl,
+            const permanentUrls = {
+              originalUrl: imageData.permanentUrls.originalUrl,
               thumbUrl: imageData.permanentUrls.thumbUrl,
               mediumUrl: imageData.permanentUrls.mediumUrl,
               largeUrl: imageData.permanentUrls.largeUrl,
@@ -48,12 +48,12 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
               ...prevArticle,
               image: {
                 ...prevArticle.image,
-                ...imageUrls,
+                ...permanentUrls,
               },
             }));
 
             // Call the server action to permanently link the image and article
-            const result = await linkArticleToImage(article.id, article.image.id, imageUrls);
+            const result = await linkArticleToImage(article.id, article.image.id, permanentUrls);
 
             if (result.success) {
               console.log('Successfully linked article and image in the database.');
@@ -81,7 +81,7 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
   };
 
   const imageUrl = article.image
-    ? article.image.largeUrl || article.image.mediumUrl || article.image.imageUrl
+    ? article.image.largeUrl || article.image.mediumUrl || article.image.originalUrl
     : null;
 
   return (
@@ -142,5 +142,3 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
     </div>
   );
 }
-
-    

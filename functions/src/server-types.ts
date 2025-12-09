@@ -24,11 +24,11 @@ export interface Article {
   views: number;
   image: {
     id: string;
-    imageUrl: string;
     imageHint: string;
-    thumbUrl?: string;
-    mediumUrl?: string;
-    largeUrl?: string;
+    originalUrl: string; // The canonical, full-resolution URL for the image.
+    largeUrl?: string;    // Optional URL for a large-sized version.
+    mediumUrl?: string;   // Optional URL for a medium-sized version.
+    thumbUrl?: string;    // Optional URL for a thumbnail version.
   };
   content: string;
 }

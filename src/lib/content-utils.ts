@@ -17,12 +17,11 @@ async function getHighlighter() {
 }
 
 /**
- * Sanitizes and applies syntax highlighting to an HTML string.
- * @param html The raw HTML content.
- * @returns The processed HTML string.
+ * Sanitizes and applies syntax highlighting to an HTML string from the server.
+ * @param html The raw HTML content from the database.
+ * @returns The processed HTML string with highlighted code blocks.
  */
 export async function getHighlightedHtml(html: string): Promise<string> {
-    // Sanitize the HTML to prevent XSS attacks, while allowing code-related tags.
     const sanitizedHtml = sanitizeHtml(html, {
         allowedTags: sanitizeHtml.defaults.allowedTags.concat([
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'pre', 'code', 'span', 'div', 'p', 'br'
@@ -32,30 +31,30 @@ export async function getHighlightedHtml(html: string): Promise<string> {
             '*': ['class', 'style'],
             a: ['href', 'name', 'target'],
             img: ['src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
-            pre: ['data-lang', 'data-theme'],
-            code: ['data-lang', 'data-theme'],
-            div: ['data-color-mode'],
-            span: ['data-line'],
         },
-        selfClosing: ['img', 'br'],
-        allowedSchemes: ['http', 'https', 'ftp', 'mailto', 'tel'],
-        allowedSchemesByTag: {},
-        allowedSchemesAppliedToAttributes: ['href', 'src', 'cite'],
-        allowProtocolRelative: true,
-        enforceHtmlBoundary: false,
     });
 
-    // Use JSDOM to parse the HTML and find code blocks.
     const dom = new JSDOM(sanitizedHtml);
     const { document } = dom.window;
     const codeBlocks = document.querySelectorAll('pre > code');
     const shikiHighlighter = await getHighlighter();
 
-    // Apply syntax highlighting to each code block.
     for (const codeBlock of codeBlocks) {
         const preElement = codeBlock.parentElement as HTMLPreElement;
-        const lang = codeBlock.className.replace('language-', '');
-        const code = codeBlock.textContent || '';
+
+        // Extract language from class, guarding against invalid values.
+        let lang = codeBlock.className.replace('language-', '');
+        if (!lang || lang === 'undefined') {
+            lang = 'txt'; // Default to plain text if language is missing or invalid.
+        }
+
+        const rawCode = codeBlock.innerHTML;
+        const code = rawCode
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/\\n/g, '\n');
+
         try {
             const highlightedCode = shikiHighlighter.codeToHtml(code, {
                 lang,
@@ -64,8 +63,9 @@ export async function getHighlightedHtml(html: string): Promise<string> {
             preElement.outerHTML = highlightedCode;
         } catch (e) {
             console.error(`Shiki highlighting failed for lang: '${lang}'`, e);
-            // If highlighting fails, we leave the original code block intact.
+            // If highlighting fails, we leave the original, un-highlighted code block.
         }
     }
+
     return document.body.innerHTML;
 }

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "firebase": {
-      "command": "firebase",
+      "command": "/home/user/.global_modules/bin/firebase",
       "args": ["experimental:mcp"]
     }
   }

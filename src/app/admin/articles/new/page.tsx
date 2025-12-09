@@ -41,6 +41,7 @@ export default function NewArticlePage() {
   const router = useRouter();
   const { toast } = useToast();
   
+  const [articleId] = useState(() => doc(collection(getFirestore(), 'articles')).id);
   const [uploadedImage, setUploadedImage] = useState<{ imageId: string; previewUrl: string; file: File } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,8 +89,7 @@ export default function NewArticlePage() {
       const imageRef = doc(collection(db, 'images')); // Generate new ID locally
       const imageId = imageRef.id;
 
-      // The uploadImage function now uploads to a temp path
-      await uploadImage(file, user.uid, imageId);
+      await uploadImage(file, user.uid, imageId, articleId);
 
       const previewUrl = URL.createObjectURL(file);
       setUploadedImage({ imageId, previewUrl, file });
@@ -109,10 +109,10 @@ export default function NewArticlePage() {
   };
 
   const handleRemoveImage = async () => {
-    if (uploadedImage) {
+    if (uploadedImage && user) {
         try {
             // Call the cloud function to delete the image set from storage and firestore
-            await deleteImage(uploadedImage.imageId);
+            await deleteImage(uploadedImage.imageId, user.uid, articleId);
             toast({ title: 'Image Removed', description: 'The uploaded image has been removed.' });
             
             URL.revokeObjectURL(uploadedImage.previewUrl);
@@ -145,6 +145,7 @@ export default function NewArticlePage() {
 
       // The `createArticle` action now handles associating the image ID
       const result = await createArticle({
+        id: articleId, // Pass the pre-generated articleId
         slug,
         title: values.title,
         description: values.description,
@@ -153,9 +154,6 @@ export default function NewArticlePage() {
         image: {
             id: uploadedImage.imageId, 
             imageHint: values.imageHint || '',
-            // These are not needed on the client, will be populated on the server
-            imageUrl: '', 
-            fileName: uploadedImage.file.name,
         },
     });
 
@@ -376,7 +374,7 @@ export default function NewArticlePage() {
                     <FormItem>
                         <FormLabel>Content</FormLabel>
                         <FormControl>
-                            <TiptapEditor content={field.value} onChange={field.onChange} />
+                            <TiptapEditor content={field.value} onChange={field.onChange} articleId={articleId} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -391,5 +389,3 @@ export default function NewArticlePage() {
     </Card>
   );
 }
-
-    

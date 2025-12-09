@@ -1,6 +1,7 @@
 import { getArticleBySlug, getCommentsByArticleId } from '@/lib/server-actions';
 import { ArticleClient } from './ArticleClient';
 import { notFound } from 'next/navigation';
+import { getHighlightedHtml } from '@/lib/content-utils';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -19,16 +20,22 @@ export default async function ArticlePage({ params }: PageProps) {
     notFound();
   }
 
+  // Process the content on the server to apply syntax highlighting.
+  const highlightedContent = await getHighlightedHtml(article.content);
+
   // Fetch comments data on the server.
   const comments = await getCommentsByArticleId(article.id);
 
-  // The 'article' object now conforms to the unified 'Article' type and can be
-  // passed directly to the client. No transformation is needed.
+  // Create a new article object with the highlighted content to pass to the client.
+  const articleForClient = {
+      ...article,
+      content: highlightedContent,
+  };
 
-  // Render the client component with the fetched data.
+  // Render the client component with the fetched and processed data.
   return (
     <ArticleClient
-      initialArticle={article}
+      initialArticle={articleForClient}
       initialComments={comments}
     />
   );

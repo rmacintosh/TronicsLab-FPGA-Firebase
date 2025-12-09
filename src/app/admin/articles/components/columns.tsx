@@ -6,7 +6,7 @@ import { Article } from "@/lib/types";
 import { CellAction } from "./cell-action";
 import { DataTableColumnHeader } from "@/app/admin/components/data-table-column-header";
 
-export const columns: ColumnDef<Article>[] = [
+export const getColumns = (refreshData: () => void): ColumnDef<Article>[] => [
     {
         accessorKey: "title",
         header: ({ column }) => (
@@ -37,6 +37,6 @@ export const columns: ColumnDef<Article>[] = [
     {
         id: "actions",
         header: "Actions",
-        cell: ({ row }: CellContext<Article, unknown>) => <CellAction data={row.original} />,
+        cell: ({ row }: CellContext<Article, unknown>) => <CellAction data={row.original} refreshData={refreshData} />,
     },
 ];

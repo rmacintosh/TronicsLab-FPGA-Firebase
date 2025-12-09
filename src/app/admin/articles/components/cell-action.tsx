@@ -20,9 +20,10 @@ import { useFirebase } from '@/firebase/provider';
 
 interface CellActionProps {
   data: Article;
+  refreshData: () => void;
 }
 
-export const CellAction: React.FC<CellActionProps> = ({ data }) => {
+export const CellAction: React.FC<CellActionProps> = ({ data, refreshData }) => {
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -38,11 +39,11 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
       const authToken = await user.getIdToken();
       const result = await deleteArticleAction(authToken, data.id);
       if (result.success) {
+        refreshData();
         toast({
           title: 'Article Deleted',
           description: 'The article has been successfully deleted.',
         });
-        router.refresh();
       } else {
         throw new Error(result.message);
       }

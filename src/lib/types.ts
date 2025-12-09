@@ -26,12 +26,7 @@ export type NewArticleData = {
   categoryId: string;
   image: {
     id: string;
-    imageUrl: string;
     imageHint: string;
-    thumbUrl?: string;
-    mediumUrl?: string;
-    largeUrl?: string;
-    fileName?: string; // The name of the original file, needed for server processing
   };
   content: string;
 };

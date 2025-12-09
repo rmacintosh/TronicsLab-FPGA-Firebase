@@ -18,17 +18,16 @@ import {
   AlignRight,
   Table as TableIcon,
 } from 'lucide-react';
-import { useFirebase, useStorage } from '@/firebase/provider';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useFirebase } from '@/firebase/provider';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useCallback } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { uploadContentImage } from '@/lib/image-upload';
 
-export const Toolbar = ({ editor }: { editor: Editor | null }) => {
+export const Toolbar = ({ editor, articleId }: { editor: Editor | null, articleId: string }) => {
   const { user } = useFirebase();
-  const storage = useStorage();
   const { toast } = useToast();
 
   const setLink = useCallback(() => {
@@ -56,18 +55,15 @@ export const Toolbar = ({ editor }: { editor: Editor | null }) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
-    toast({ title: "Uploading Image...", description: "Please wait while the image is uploaded." });
+    const { id, update } = toast({ title: "Uploading Image...", description: "Please wait while the image is uploaded." });
 
     try {
-      const storageRef = ref(storage, `images/${user.uid}/content/${Date.now()}-${file.name}`);
-      const uploadTask = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(uploadTask.ref);
-
+      const downloadURL = await uploadContentImage(file, user.uid, articleId);
       editor.chain().focus().setImage({ src: downloadURL }).run();
-      toast({ title: "Image Inserted!", description: "The image has been successfully added to your article." });
+      update({ id, title: "Image Inserted!", description: "The image has been successfully added to your article." });
     } catch (error) {
       console.error("Image upload error:", error);
-      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload the image." });
+      update({ id, variant: "destructive", title: "Upload Failed", description: "Could not upload the image." });
     }
   };
 

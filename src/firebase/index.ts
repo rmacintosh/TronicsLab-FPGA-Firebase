@@ -22,14 +22,16 @@ export function initializeFirebase() {
       if (process.env.NODE_ENV === "production") {
         console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
       }
-      firebaseApp = initializeApp({
+      const firebaseConfig = {
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
         appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
         storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // Add storageBucket
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
         messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      });
+      };
+      firebaseApp = initializeApp(firebaseConfig);
+      //console.log("Firebase App Config:", firebaseConfig)
     }
 
     return getSdks(firebaseApp);

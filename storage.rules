@@ -2,22 +2,22 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Public read access for permanent images and content.
-    match /images/{userId}/{imageId}/{allPaths=**} {
-      allow read;
-    }
-    match /images/content/{allPaths=**} {
-        allow read;
+
+    // --- TEMPORARY ---
+    // User can read/write their own temporary images.
+    // This single rule covers both feature and content images during the upload process.
+    // Crucially, it denies public read access to the entire /images/temp/ directory.
+    match /images/temp/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow authenticated users to write ONLY to their own temp directory.
-    match /images/temp/{userId}/{imageId}/{fileName} {
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Allow read on temp images for the owner during the upload process.
-     match /images/temp/{userId}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+    // --- PERMANENT ---
+    // All permanent images (feature and content) are publicly readable
+    // but can only be created/modified by the backend (e.g., Cloud Functions).
+    // We explicitly disallow all direct client-side writes/deletes to these paths.
+    match /images/{userId}/{articleId}/{allPaths=**} {
+      allow read;
+      allow write: if false;
     }
   }
 }

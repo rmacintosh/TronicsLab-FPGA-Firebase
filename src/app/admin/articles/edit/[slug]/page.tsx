@@ -37,16 +37,16 @@ interface HierarchicalCategory extends Category {
 }
 
 function EditArticleForm({ article, categories, isAdmin }: { article: Article; categories: Category[], isAdmin: boolean }) {
-    const { refreshData, updateArticle } = useData();
+    const { refreshData } = useData();
     const { user } = useFirebase();
     const router = useRouter();
     const { toast } = useToast();
     
-    const [imagePreview, setImagePreview] = useState<string | null>(article.image?.imageUrl || null);
+    const [currentImage, setCurrentImage] = useState<string | null>(article.image?.originalUrl || null);
     const [uploadedImage, setUploadedImage] = useState<{ imageId: string, previewUrl: string, file: File } | null>(null);
     const [isImageRemoved, setIsImageRemoved] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const originalImageId = article.image?.id; // Keep track of the original image
+    const originalImageId = article.image?.id;
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm<z.infer<typeof articleSchema>>({
@@ -60,20 +60,21 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             categoryId: article.categoryId,
         },
     });
-
+    
     useEffect(() => {
-      // Cleanup for object URLs
-      return () => {
-        if (uploadedImage?.previewUrl) {
-          URL.revokeObjectURL(uploadedImage.previewUrl);
-        }
-      };
+        // On unmount, if there's a temporary preview URL, revoke it to prevent memory leaks
+        return () => {
+            if (uploadedImage?.previewUrl) {
+                URL.revokeObjectURL(uploadedImage.previewUrl);
+            }
+        };
     }, [uploadedImage]);
 
     const selectedCategoryId = form.watch('categoryId');
     const selectedCategory = useMemo(() => 
-        categories.find(c => c.id === selectedCategoryId)
-    , [categories, selectedCategoryId]);
+        categories.find(c => c.id === selectedCategoryId), 
+        [categories, selectedCategoryId]
+    );
 
     const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -83,40 +84,48 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
         const { id, update } = toast({ title: "Uploading Image..." });
 
         try {
-            // If there's an old image (either original or a newly uploaded one), delete it first
-            if (imagePreview) {
-                const imageIdToDelete = uploadedImage?.imageId || originalImageId;
-                if (imageIdToDelete) {
-                    await deleteImage(imageIdToDelete);
-                }
+            // If there's an existing image (either original or a newly uploaded one), remove it first.
+            const imageIdToDelete = uploadedImage?.imageId || originalImageId;
+            if (imageIdToDelete) {
+                await deleteImage(imageIdToDelete, user.uid, article.id);
             }
 
+            // Clean up any existing local preview URL
+            if (uploadedImage?.previewUrl) {
+                URL.revokeObjectURL(uploadedImage.previewUrl);
+            }
+            
             const db = getFirestore();
             const imageRef = doc(collection(db, 'images'));
-            const imageId = imageRef.id;
-
-            await uploadImage(file, user.uid, imageId);
-
-            const previewUrl = URL.createObjectURL(file);
-            setUploadedImage({ imageId, previewUrl, file });
-            setImagePreview(previewUrl);
+            const newImageId = imageRef.id;
+            
+            await uploadImage(file, user.uid, newImageId, article.id);
+            
+            const newPreviewUrl = URL.createObjectURL(file);
+            
+            setUploadedImage({ imageId: newImageId, previewUrl: newPreviewUrl, file });
+            setCurrentImage(newPreviewUrl);
             setIsImageRemoved(false);
 
-            update({ id, title: "Image Uploaded!", description: "The image is ready." });
+            update({ id, title: "Image Uploaded!", description: "The new image is ready." });
         } catch (error) {
             console.error("Image upload error:", error);
-            update({ id, variant: "destructive", title: "Upload Failed", description: "Could not upload the image." });
+            update({ id, variant: "destructive", title: "Upload Failed", description: "Could not upload the new image." });
+            // If upload fails, revert to the original image if it existed
+            setCurrentImage(article.image?.originalUrl || null);
         } finally {
             setIsUploading(false);
         }
     };
 
     const handleRemoveImage = async () => {
-        const imageIdToDelete = uploadedImage?.imageId || originalImageId;
+        if (!user) return;
 
+        const imageIdToDelete = uploadedImage?.imageId || originalImageId;
+        
         if (imageIdToDelete) {
             try {
-                await deleteImage(imageIdToDelete);
+                await deleteImage(imageIdToDelete, user.uid, article.id);
                 toast({ title: "Image Removed" });
             } catch (error) {
                 console.error("Error deleting image:", error);
@@ -129,14 +138,15 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             }
         }
 
+        // Cleanup local state
         if (uploadedImage?.previewUrl) {
             URL.revokeObjectURL(uploadedImage.previewUrl);
         }
         
-        setImagePreview(null);
+        setCurrentImage(null);
         setUploadedImage(null);
         setIsImageRemoved(true);
-        form.setValue('imageHint', ''); 
+        form.setValue('imageHint', '');
     };
 
     async function onSubmit(values: z.infer<typeof articleSchema>) {
@@ -144,6 +154,8 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to edit an article." });
             return;
         }
+
+        const authToken = await user.getIdToken();
 
         const updatePayload: { [key: string]: any } = {
             description: values.description,
@@ -155,28 +167,26 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
             updatePayload.categoryId = values.categoryId;
         }
 
-        // Case 1: A new image was uploaded in this session.
         if (uploadedImage) {
             updatePayload.image = {
                 id: uploadedImage.imageId,
                 imageHint: values.imageHint || '',
-                imageUrl: '', // This triggers the listener on the article page
+                // Important: We don't send URLs, backend will generate them
             };
         } 
-        // Case 2: The existing image was removed.
         else if (isImageRemoved) {
             updatePayload.image = null;
         } 
-        // Case 3: Only the image hint was changed for the existing image.
-        else if (originalImageId && values.imageHint !== article.image.imageHint) {
+        // This case handles when only the image hint is changed for an existing image
+        else if (originalImageId && values.imageHint !== article.image?.imageHint) {
             updatePayload.image = {
-                ...article.image,
+                id: originalImageId,
                 imageHint: values.imageHint || '',
             };
         }
         
         try {
-            const result = await updateArticle(article.id, updatePayload);
+            const result = await updateArticleAction(authToken, article.id, updatePayload);
 
             if (result.success) {
                 toast({ title: "Article Updated!", description: "The article has been successfully updated." });
@@ -284,10 +294,10 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
                                         ref={fileInputRef}
                                         disabled={isUploading}
                                     />
-                                    {imagePreview ? (
+                                    {currentImage ? (
                                         <div className="relative w-48 h-24">
                                             <Image
-                                                src={imagePreview}
+                                                src={currentImage}
                                                 alt="Article preview"
                                                 fill
                                                 className="rounded-md object-cover"
@@ -329,7 +339,7 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
                                         <Input 
                                             placeholder="A short description of the image for AI processing" 
                                             {...field}
-                                            disabled={!imagePreview || isUploading}
+                                            disabled={!currentImage || isUploading}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -391,7 +401,7 @@ function EditArticleForm({ article, categories, isAdmin }: { article: Article; c
                                 <FormItem>
                                     <FormLabel>Content</FormLabel>
                                     <FormControl>
-                                        <TiptapEditor content={field.value} onChange={field.onChange} />
+                                        <TiptapEditor content={field.value} onChange={field.onChange} articleId={article.id} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -426,5 +436,3 @@ export default function EditArticlePage({ params }: { params: Promise<{ slug: st
 
     return <EditArticleForm article={article} categories={categories} isAdmin={isAdmin} />;
 }
-
-    
