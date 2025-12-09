@@ -20,13 +20,27 @@ import { FilePlus, MessageSquare, Users, Database, LayoutGrid, FilePen, Loader2 
 import Link from "next/link";
 import { useData } from "@/components/providers/data-provider";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
   const { articles, comments, seedDatabase } = useData();
-  const { user, isUserLoading } = useFirebase();
+  const { user, isUserLoading, firestoreUser } = useFirebase();
   const { toast } = useToast();
   const [userCount, setUserCount] = useState(0);
   const [isUserCountLoading, setUserCountLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading) {
+      if (firestoreUser?.roles?.includes('admin')) {
+        // User is an admin, so we don't need to do anything.
+      } else if (firestoreUser?.roles?.includes('author')) {
+        router.push('/author');
+      } else if (firestoreUser?.roles?.includes('moderator')) {
+        router.push('/moderator');
+      }
+    }
+  }, [isUserLoading, firestoreUser, router]);
 
   useEffect(() => {
     if (isUserLoading) return; 
@@ -66,7 +80,6 @@ export default function AdminDashboard() {
         description: "The initial data has been successfully loaded into Firestore.",
       });
     } catch (error: any) {
-      // CORRECTED LOGGING: Log the full error to the browser console
       console.error("--- CLIENT-SIDE SEEDING ERROR ---", error);
       toast({
         variant: "destructive",
@@ -75,6 +88,25 @@ export default function AdminDashboard() {
       });
     }
   };
+
+  if (isUserLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-16 w-16 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!firestoreUser?.roles?.includes('admin')) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p>You do not have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
