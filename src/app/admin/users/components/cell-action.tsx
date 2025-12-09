@@ -21,7 +21,7 @@ interface CellActionProps {
 
 export const CellAction: React.FC<CellActionProps> = ({ data }) => {
     const { user } = useFirebase();
-    const { updateUserRoles, deleteUser } = useData();
+    const { updateUserRoles, deleteUser, refreshData } = useData();
     const { toast } = useToast();
     const [isManageRolesOpen, setManageRolesOpen] = useState(false);
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -39,6 +39,7 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
                 title: "User role updated",
                 description: `Successfully updated role for ${data.displayName}.`,
             });
+            await refreshData();
             setManageRolesOpen(false);
         } else {
             toast({

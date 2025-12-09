@@ -29,7 +29,7 @@ import { useRouter } from "next/navigation"
 export function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  const { isAdmin } = useData();
+  const { userRoles } = useData();
   const { state } = useSidebar();
   const router = useRouter();
 
@@ -76,6 +76,15 @@ export function UserNav() {
     )
   }
 
+  let panelText = '';
+  if (userRoles.includes('admin')) {
+    panelText = 'Admin Panel';
+  } else if (userRoles.includes('author')) {
+    panelText = 'Author Panel';
+  } else if (userRoles.includes('moderator')) {
+    panelText = 'Moderator Panel';
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -104,18 +113,18 @@ export function UserNav() {
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        {isAdmin && (
+        {panelText && (
             <>
+                <DropdownMenuSeparator />
                 <Link href="/admin">
                     <DropdownMenuItem>
                         <Settings className="mr-2 h-4 w-4" />
-                        <span>Admin Panel</span>
+                        <span>{panelText}</span>
                     </DropdownMenuItem>
                 </Link>
-                <DropdownMenuSeparator />
             </>
         )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>
@@ -124,5 +133,3 @@ export function UserNav() {
     </DropdownMenu>
   )
 }
-
-    

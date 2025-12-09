@@ -5,17 +5,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useData } from "../providers/data-provider";
 
-const adminNavItems = [
-  { name: "Dashboard", href: "/admin" },
-  { name: "Articles", href: "/admin/articles" },
-  { name: "Categories", href: "/admin/categories" },
-  { name: "Comments", href: "/admin/comments" },
-  { name: "Users", href: "/admin/users" },
-];
+const allAdminNavItems = [
+  { name: "Dashboard", href: "/admin", roles: ["admin"] },
+  { name: "Articles", href: "/admin/articles", roles: ["admin", "author"] },
+  { name: "Categories", href: "/admin/categories", roles: ["admin", "author"] },
+  { name: "Comments", href: "/admin/comments", roles: ["admin", "moderator"] },
+  { name: "Users", href: "/admin/users", roles: ["admin"] },
+] as const;
 
 export function AdminHeader() {
   const pathname = usePathname();
+  const { userRoles } = useData();
+
+  const adminNavItems = allAdminNavItems.filter((item) =>
+    item.roles.some((role) => userRoles.includes(role))
+  );
 
   return (
     <div className="border-b mb-8">
@@ -26,7 +32,7 @@ export function AdminHeader() {
               variant="ghost"
               className={cn(
                 "rounded-none border-b-2 border-transparent hover:bg-muted hover:border-primary",
-                pathname.startsWith(item.href) && item.href !== "/admin" || pathname === item.href
+                (pathname.startsWith(item.href) && item.href !== "/admin") || pathname === item.href
                   ? "border-primary"
                   : ""
               )}
