@@ -6,12 +6,14 @@ import Image from 'next/image';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { linkArticleToImage } from '@/lib/actions/article.actions';
 import { addComment } from '@/lib/server-actions';
+import { deleteCommentAction } from '@/lib/actions/comment.actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useFirebase } from '@/firebase/provider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Article, FullComment } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface ArticleClientProps {
   initialArticle: Article;
@@ -20,6 +22,7 @@ interface ArticleClientProps {
 
 export function ArticleClient({ initialArticle, initialComments }: ArticleClientProps) {
   const { user, firestore } = useFirebase();
+  const { toast } = useToast();
   const [article, setArticle] = useState<Article>(initialArticle);
   const [comments, setComments] = useState<FullComment[]>(initialComments);
   const [newComment, setNewComment] = useState('');
@@ -80,9 +83,31 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!user) {
+        toast({ title: "Authentication Error", description: "You must be logged in to delete a comment.", variant: "destructive" });
+        return;
+    }
+    try {
+      const authToken = await user.getIdToken();
+      const result = await deleteCommentAction(authToken, commentId);
+      if (result.success) {
+        setComments(comments.filter(comment => comment.id !== commentId));
+        toast({ title: "Comment Deleted" });
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    }
+  };
+
   const imageUrl = article.image
     ? article.image.largeUrl || article.image.mediumUrl || article.image.originalUrl
     : null;
+    
+  const isArticleAuthor = user?.uid === article.authorId;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -129,11 +154,16 @@ export function ArticleClient({ initialArticle, initialComments }: ArticleClient
                   <AvatarImage src={comment.authorPhotoURL} />
                   <AvatarFallback>{comment.authorName.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="flex-grow">
                   <p className="font-semibold">{comment.authorName}</p>
                   <p>{comment.comment}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(comment.createdAt).toLocaleString()}</p>
                 </div>
+                {isArticleAuthor && (
+                  <Button variant="ghost" size="sm" onClick={() => handleDeleteComment(comment.id)}>
+                    Delete
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
