@@ -1,12 +1,11 @@
+
 import { initializeApp, getApps, App } from 'firebase-admin/app';
-import admin, { ServiceAccount } from 'firebase-admin';
-import serviceAccount from '../../firebase-admin.json';
+import admin from 'firebase-admin';
 
 let app: App;
 
 if (!getApps().length) {
   app = initializeApp({
-    credential: admin.credential.cert(serviceAccount as ServiceAccount),
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   });
 } else {
