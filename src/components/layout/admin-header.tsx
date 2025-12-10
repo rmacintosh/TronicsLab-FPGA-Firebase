@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useData } from "../providers/data-provider";
 
 const allAdminNavItems = [
-  { name: "Dashboard", href: "/admin", roles: ["admin"] },
+  { name: "Dashboard", href: "/admin", roles: ["admin", "author", "moderator"] },
   { name: "Articles", href: "/admin/articles", roles: ["admin", "author"] },
   { name: "Categories", href: "/admin/categories", roles: ["admin", "author"] },
   { name: "Comments", href: "/admin/comments", roles: ["admin", "moderator"] },
