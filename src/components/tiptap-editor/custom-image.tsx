@@ -79,11 +79,23 @@ const ImageView: FC<any> = ({ editor, node, updateAttributes }) => {
 
   const currentWidth = parseWidth(node.attrs.width);
 
+  const getAlignmentClass = (align: string | undefined): string => {
+    if (align === 'left') {
+      return 'mr-auto';
+    }
+    if (align === 'right') {
+      return 'ml-auto';
+    }
+    return 'mx-auto'; // Default/center
+  };
+
+  const alignmentClass = getAlignmentClass(node.attrs.align);
+
   return (
     <NodeViewWrapper
       ref={wrapperRef}
       as="div"
-      className={`not-prose relative block ${ // Added not-prose to opt-out of global styles
+      className={`not-prose relative block ${alignmentClass} ${ // Added not-prose and alignment
         editor.isEditable ? 'resize-x overflow-auto border-2 border-dashed border-gray-400' : ''
       }`}
       style={{
@@ -121,6 +133,15 @@ export const CustomImage = Image.extend({
             style: `width: ${width}px`,
           };
         },
+      },
+      align: {
+        default: 'center',
+        renderHTML: (attributes: Record<string, any>) => {
+          return {
+            'data-align': attributes.align,
+          };
+        },
+        parseHTML: (element) => element.getAttribute('data-align'),
       },
     };
   },

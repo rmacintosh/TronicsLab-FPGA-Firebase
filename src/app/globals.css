@@ -144,3 +144,61 @@
   background: hsla(var(--primary), 0.2);
   pointer-events: none;
 }
+
+/* New Drag Handle Styles */
+.handle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.add-button,
+.drag-handle-wrapper {
+  color: hsl(var(--muted-foreground));
+  border-radius: 0.375rem; /* rounded-md */
+  padding: 0.25rem; /* p-1 */
+  transition: background-color 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-button:hover,
+.drag-handle-wrapper:hover {
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--accent-foreground));
+}
+
+.drag-handle-wrapper {
+  cursor: grab;
+}
+
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
+/* Code Blocks */
+.prose pre {
+  background-color: hsl(var(--secondary));
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.prose pre code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hovered-node {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+}
+
+.dark .hovered-node {
+    background-color: rgba(255, 255, 255, 0.05);
+}

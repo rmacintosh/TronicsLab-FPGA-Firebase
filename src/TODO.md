@@ -68,6 +68,25 @@ This section is dedicated to improving the quality, consistency, and maintainabi
 
 ---
 
+## Notion-Style Editor Feature Roadmap
+
+This section outlines the feature enhancements for the Tiptap editor to bring it closer to a Notion-style experience.
+
+| Feature | Status | Notes |
+| :--- | :--- | :--- |
+| **Visual Polish for Drag Handle** | `TO DO` | Enhance the look and feel of the drag handle to make it more prominent and intuitive. |
+| **Drag Handle Quick Actions** | `TO DO` | Implement a dropdown menu that appears on click, offering actions like "Delete" and "Duplicate." |
+| **Advanced Slash Commands** | `TO DO` | Expand the slash command menu with more content types like callouts, toggles, and dividers. Improve the visual presentation and keyboard navigation. |
+| **Enhanced Bubble Menu** | `TO DO` | Add more formatting options to the floating toolbar, such as text alignment, text color, and additional heading levels. |
+| **Markdown-Style Shortcuts** | `TO DO` | Implement input rules for creating lists (`- `), blockquotes (`> `), headings (`## `), and code blocks (```) using Markdown syntax. |
+| **Advanced Table Features** | `TO DO` | Implement a context menu for tables to allow for easier row/column insertion and deletion, and add support for cell background colors. |
+| **Expanded Embed Support** | `TO DO` | Add support for embedding content from other popular services like CodePen, CodeSandbox, and Figma. |
+| **Interactive To-Do Lists** | `TO DO` | Implement interactive to-do lists with checkboxes that can be toggled. |
+| **Image Resizing & Alignment** | `TO DO` | Add handles to allow users to resize images directly within the editor and align them (left, center, right). |
+| **Distraction-Free Mode** | `TO DO` | Implement a feature to hide the editor's UI elements, allowing the user to focus solely on the content. |
+
+---
+
 ## Future Considerations
 
 These are larger features that have been discussed but are not on the immediate roadmap.
@@ -89,6 +108,16 @@ These items are technical in nature and need to be addressed before a full produ
 | **Fix Signup Data Model** | `TO DO` | **Problem:** The signup page creates users with the wrong data model. **Solution:** Update the signup logic to use the correct data model. |
 | **Fix "Unknown Author" in Admin Comments** | `TO DO` | **Problem:** The comments management page displays "Unknown Author". **Solution:** Update data fetching to correctly look up the author's name. |
 | **Fix 404 on Refresh** | `ON HOLD` | **Problem:** Refreshing on dynamic article pages causes a 404. **Cause:** Mismatch between Next.js app and `firebase.json` hosting config. **Solution:** Use Firebase App Hosting (requires Blaze plan). |
+
+---
+
+### Refactor User Data Model (unsorted tasks)
+
+- **Goal:** Improve the data model for user creation to make it more robust and explicit.
+- **File to modify:** `src/lib/actions/user.actions.ts`
+- **Action:** Change the signature of `createUserDocumentAction` to accept a `userData` object containing `displayName` and an optional `photoURL`.
+- **File to update:** `src/app/signup/page.tsx`
+- **Action:** Update the email/password and Google sign-up flows to pass the new `userData` object to the `createUserDocumentAction`.
 
 ---
 
