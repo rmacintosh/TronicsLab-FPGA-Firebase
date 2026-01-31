@@ -3,6 +3,14 @@ import { Extension } from '@tiptap/core';
 import { findParentNode } from 'prosemirror-utils';
 import { TextSelection, EditorState, Transaction } from 'prosemirror-state';
 
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    moveToLastCell: {
+      moveToLastCell: () => ReturnType;
+    };
+  }
+}
+
 export const MoveToLastCell = Extension.create({
   name: 'moveToLastCell',
 
