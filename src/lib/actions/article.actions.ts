@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -34,7 +33,16 @@ export async function processAndCreateArticleAction(
             const userData = userDoc.data();
             const authorName = userData?.displayName || 'Anonymous Author';
 
-            const newArticle: Omit<Article, 'id' | 'date' | 'views'> = {
+            const categoryDoc = await transaction.get(categoryRef);
+            if (!categoryDoc.exists) {
+                throw new Error('Category not found.');
+            }
+            const categoryData = categoryDoc.data();
+
+            const finalArticleData: Article = {
+                id: articleRef.id,
+                date: new Date().toISOString(),
+                views: 0,
                 slug: articleData.slug,
                 title: articleData.title,
                 description: articleData.description,
@@ -42,28 +50,13 @@ export async function processAndCreateArticleAction(
                 authorId: decodedToken.uid,
                 authorName: authorName,
                 categoryId: articleData.categoryId,
-                categoryName: '', // This will be filled in by the transaction
-                categorySlug: '', // This will be filled in by the transaction
+                categoryName: categoryData?.name || 'Uncategorized',
+                categorySlug: categoryData?.slug || 'uncategorized',
                 image: {
                     id: articleData.image.id,
                     imageHint: articleData.image.imageHint,
                     originalUrl: '', // Will be populated by a background process
                 },
-            };
-            
-            const categoryDoc = await transaction.get(categoryRef);
-            if (!categoryDoc.exists) {
-                throw new Error('Category not found.');
-            }
-            const categoryData = categoryDoc.data();
-
-            const finalArticleData = {
-                ...newArticle,
-                id: articleRef.id,
-                date: new Date().toISOString(),
-                views: 0,
-                categoryName: categoryData?.name || 'Uncategorized',
-                categorySlug: categoryData?.slug || 'uncategorized',
             };
 
             transaction.set(articleRef, finalArticleData);

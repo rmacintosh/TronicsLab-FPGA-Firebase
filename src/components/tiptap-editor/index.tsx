@@ -1,124 +1,23 @@
+
 'use client';
 
-import { useEditor, EditorContent } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
-import { CustomImage } from './custom-image';
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { useFirebase } from '@/firebase/provider';
-import { useToast } from '@/hooks/use-toast';
-import { uploadContentImage } from '@/lib/image-upload';
-import { suggestion } from './slash-command';
-import { Extension } from '@tiptap/core';
-import Suggestion from '@tiptap/suggestion';
-import { Youtube } from './youtube';
-import { DragHandle as DragHandleReact } from '@tiptap/extension-drag-handle-react';
-import DragHandle from '@tiptap/extension-drag-handle';
-import Placeholder from '@tiptap/extension-placeholder';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { offset, shift } from '@floating-ui/dom';
-import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
-import { Duplicate } from './duplicate-extension';
-import { DeleteBlock } from './delete-extension';
-import { CopyToClipboard } from './copy-extension';
-
-// Import individual extensions
-import { Table } from '@tiptap/extension-table';
-import { TableRow } from '@tiptap/extension-table-row';
-import { TableHeader } from '@tiptap/extension-table-header';
-import { TableCell } from '@tiptap/extension-table-cell';
-
-import Blockquote from '@tiptap/extension-blockquote';
-import Bold from '@tiptap/extension-bold';
-import BulletList from '@tiptap/extension-bullet-list';
-import Code from '@tiptap/extension-code';
-import Document from '@tiptap/extension-document';
-import Heading from '@tiptap/extension-heading';
-import History from '@tiptap/extension-history';
-import Italic from '@tiptap/extension-italic';
-import ListItem from '@tiptap/extension-list-item';
-import OrderedList from '@tiptap/extension-ordered-list';
-import Paragraph from '@tiptap/extension-paragraph';
-import Strike from '@tiptap/extension-strike';
-import Text from '@tiptap/extension-text';
-import Underline from '@tiptap/extension-underline';
-import Dropcursor from '@tiptap/extension-dropcursor';
-import Gapcursor from '@tiptap/extension-gapcursor';
-import CharacterCount from '@tiptap/extension-character-count';
-import CodeBlock from '@tiptap/extension-code-block';
-import TextAlign from '@tiptap/extension-text-align';
-import Link from '@tiptap/extension-link';
-
-import {
-  Bold as BoldIcon,
-  Italic as ItalicIcon,
-  Strikethrough,
-  Heading1, 
-  Heading2, 
-  Heading3,
-  Quote,
-  Link as LinkIcon,
-  GripVertical,
-  Plus,
-  Trash,
-  Copy,
-  Clipboard
-} from 'lucide-react';
-
-// 1. Extend the CodeBlock extension
-const CustomCodeBlock = CodeBlock.extend({
-  addAttributes() {
-    return {
-      // inherit the default attributes
-      ...this.parent?.(),
-      // add a new attribute for language
-      language: {
-        default: null,
-        // This is used to parse the language from the HTML
-        parseHTML: element => {
-          const codeEl = element.querySelector('code');
-          if (!codeEl) {
-            return null;
-          }
-          const language = codeEl.className.match(/language-([\w-]+)/)?.[1];
-          return language || null;
-        },
-      },
-    };
-  },
-
-  renderHTML({ node, HTMLAttributes }) {
-    // The outer element is a <pre> tag
-    return [
-      'pre',
-      HTMLAttributes,
-      [
-        // The inner element is a <code> tag
-        'code',
-        {
-          // Add the language class to the <code> tag
-          class: node.attrs.language
-            ? `language-${node.attrs.language}`
-            : '',
-        },
-        // 0 means this is where the content should be rendered
-        0,
-      ],
-    ];
-  },
-});
-
-const SlashCommand = Extension.create({
-    name: 'slashCommand',
-  
-    addProseMirrorPlugins() {
-      return [
-        Suggestion({
-          editor: this.editor,
-          ...suggestion,
-        }),
-      ]
-    },
-  })
+import { EditorContent } from '@tiptap/react';
+import { useTiptapEditor } from '@/hooks/use-tiptap-editor';
+import { DragHandle as CustomDragHandle } from './drag-handle';
+import { EditorBubbleMenu } from './bubble-menu';
+import { EditorCharacterCount } from './editor-character-count';
+import { useEffect, useState, useRef } from 'react';
+import { flushSync } from 'react-dom';
+import { hoverHighlightPluginKey } from './extensions/hover-highlight-extension';
+import { Button } from '@/components/ui/button';
+import { Eye, EyeOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { TableQuickAddMenu } from './table-quick-add-menu';
+import TableRowColMenu from './table-row-col-menu';
+import CellMenu from './cell-menu';
+import { CellSelection } from 'prosemirror-tables';
+import { Transaction } from 'prosemirror-state';
+import { findCell } from './extensions/selection-highlight-extension';
 
 const TiptapEditor = ({
   content,
@@ -129,345 +28,166 @@ const TiptapEditor = ({
   onChange: (richText: string) => void;
   articleId: string;
 }) => {
-  const { user } = useFirebase();
-  const { toast } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hoveredPos, setHoveredPos] = useState<number | null>(null);
-  const prevHoveredPosRef = useRef<number | null>(null);
-  const pointerDownRef = useRef<{ x: number, y: number } | null>(null);
-  const dragHandleRef = useRef<HTMLDivElement>(null);
+  const [isCellMenuOpen, setIsCellMenuOpen] = useState(false);
+  const [distractionFree, setDistractionFree] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
-  const editor = useEditor({
-    extensions: [
-      Document,
-      Paragraph,
-      Text,
-      Bold,
-      Italic,
-      Underline,
-      Strike,
-      Heading.configure({ levels: [1, 2, 3] }),
-      BulletList,
-      OrderedList,
-      ListItem,
-      Blockquote,
-      Code,
-      History,
-      CustomImage,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      Table.configure({
-        resizable: true,
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      CustomCodeBlock, // Use the extended CodeBlock
-      SlashCommand,
-      CharacterCount.configure(),
-      Youtube.configure({
-        HTMLAttributes: {
-          class: 'w-full aspect-video',
-        },
-      }),
-      Dropcursor,
-      Gapcursor,
-      Placeholder.configure({
-        placeholder: "Start writing, or type '/' to see commands...",
-      }),
-      Link.configure({
-        openOnClick: false,
-      }),
-      DragHandle,
-      Duplicate,
-      DeleteBlock,
-      CopyToClipboard,
-    ],
-    content: '', 
-    editorProps: {
-      attributes: {
-        class: 'prose dark:prose-invert w-full max-w-none prose-sm sm:prose-base lg:prose-lg xl:prose-2xl focus:outline-none border border-gray-300 rounded-md p-2 pl-20 min-h-[200px]',
-      },
-      handleDrop: function(view, event, slice, moved) {
-        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0 && user) {
-          const files = Array.from(event.dataTransfer.files);
-          const imageFiles = files.filter(file => file.type.startsWith('image/'));
+  const { editor } = useTiptapEditor({ content, onChange, articleId });
 
-          if (imageFiles.length > 0) {
-            event.preventDefault();
-            imageFiles.forEach(async (file) => {
-              const { id, update } = toast({ title: 'Uploading image...', description: 'Your image is being uploaded.' });
-              
-              try {
-                // Pass the user ID and article ID to the upload function
-                const downloadURL = await uploadContentImage(file, user.uid, articleId);
-                view.dispatch(view.state.tr.replaceSelectionWith(view.state.schema.nodes.image.create({ src: downloadURL })));
-                update({ id, title: 'Image successfully added!' });
-              } catch (error) {
-                console.error('Error handling dropped image:', error);
-                update({ id, variant: 'destructive', title: 'Image upload failed', description: 'There was an error processing your image.' });
-              }
-            });
-            return true; 
-          }
-        }
-        return false;
-      },
-    },
-    immediatelyRender: false,
-    onUpdate({ editor }) {
-      onChange(editor.getHTML());
-    },
-  });
+  const handleMenuOpenChange = (isOpen: boolean) => {
+    setMenuOpen(isOpen);
+    if (editor) {
+      const transaction = isOpen
+        ? editor.view.state.tr.setMeta(hoverHighlightPluginKey, { menu: 'open' })
+        : editor.view.state.tr.setMeta(hoverHighlightPluginKey, { menu: 'close' });
+      editor.view.dispatch(transaction);
+    }
+  };
 
   useEffect(() => {
-    if (editor && content && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    if (distractionFree) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
     }
-  }, [content, editor]);
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [distractionFree]);
 
   useEffect(() => {
     if (!editor) {
       return;
     }
-    if (menuOpen) {
-      editor.commands.lockDragHandle();
-    } else {
-      editor.commands.unlockDragHandle();
-    }
-  }, [menuOpen, editor]);
 
-  useEffect(() => {
-    if (!editor) return;
+    const handleTransaction = ({ transaction }: { transaction: Transaction }) => {
+      if (!transaction.docChanged && !transaction.selectionSet) {
+        return;
+      }
 
-    // Remove class from the previously hovered node
-    if (prevHoveredPosRef.current !== null) {
-      try {
-        const oldDomNode = editor.view.nodeDOM(prevHoveredPosRef.current) as HTMLElement;
-        if (oldDomNode) {
-          oldDomNode.classList.remove('hovered-node');
+      const { selection } = editor.state;
+      const editorDom = editorRef.current;
+
+      if (!editorDom) {
+        setTimeout(() => flushSync(() => setMenuPosition(null)), 0);
+        return;
+      }
+
+      let rect: DOMRect | null = null;
+
+      if (selection instanceof CellSelection) {
+        const { $anchorCell, $headCell } = selection;
+        const anchorCellNode = editor.view.nodeDOM($anchorCell.pos) as HTMLElement | null;
+        const headCellNode = editor.view.nodeDOM($headCell.pos) as HTMLElement | null;
+        if (anchorCellNode && headCellNode) {
+          const anchorRect = anchorCellNode.getBoundingClientRect();
+          const headRect = headCellNode.getBoundingClientRect();
+          rect = new DOMRect(
+            Math.min(anchorRect.left, headRect.left),
+            Math.min(anchorRect.top, headRect.top),
+            Math.max(anchorRect.right, headRect.right) - Math.min(anchorRect.left, headRect.left),
+            Math.max(anchorRect.bottom, headRect.bottom) - Math.min(anchorRect.top, headRect.top)
+          );
         }
-      } catch (e) {
-        // It's possible the node was deleted, so nodeDOM might throw. Ignore.
-      }
-    }
-
-    // Add class to the currently hovered node
-    if (hoveredPos !== null) {
-      try {
-        const newDomNode = editor.view.nodeDOM(hoveredPos) as HTMLElement;
-        if (newDomNode) {
-          newDomNode.classList.add('hovered-node');
+      } else {
+        const cell = findCell(selection);
+        if (cell) {
+          const cellNode = editor.view.nodeDOM(cell.pos) as HTMLElement | null;
+          if (cellNode) {
+            rect = cellNode.getBoundingClientRect();
+          }
         }
-      } catch (e) {
-        // Node might not be rendered yet. Ignore.
       }
-    }
 
-    // Update the ref for the next run
-    prevHoveredPosRef.current = hoveredPos;
-
-  }, [hoveredPos, editor]);
-
-  const handlePointerUp = useCallback((e: PointerEvent) => {
-    window.removeEventListener('pointerup', handlePointerUp);
-    if (pointerDownRef.current) {
-      const dist = Math.sqrt(
-        Math.pow(e.clientX - pointerDownRef.current.x, 2) +
-        Math.pow(e.clientY - pointerDownRef.current.y, 2)
-      );
-
-      if (dist < 10) { // It's a click, not a drag
-        setMenuOpen(true);
+      if (rect) {
+        const editorRect = editorDom.getBoundingClientRect();
+        const newPosition = {
+          top: rect.top - editorRect.top + rect.height / 2,
+          left: rect.right - editorRect.left,
+        };
+        setTimeout(() => flushSync(() => setMenuPosition(newPosition)), 0);
+      } else {
+        setTimeout(() => flushSync(() => setMenuPosition(null)), 0);
       }
-    }
-    pointerDownRef.current = null;
-  }, []);
+    };
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    pointerDownRef.current = { x: e.clientX, y: e.clientY };
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
-  }, [handlePointerUp]);
+    editor.on('transaction', handleTransaction);
 
-  const handleCopy = () => {
-    if (!editor) return;
-    editor.commands.copyNodeToClipboard();
-  };
-
-  const handleDelete = () => {
-    if (!editor) return;
-    editor.commands.deleteBlock();
-  };
-
-  const handleDuplicate = () => {
-    if (!editor) return;
-    editor.commands.duplicateNode();
-  };
+    return () => {
+      editor.off('transaction', handleTransaction);
+    };
+  }, [editor]);
 
   return (
-    <div className="relative w-full">
+    <div
+      ref={editorRef}
+      className={cn(
+        'relative w-full',
+        !distractionFree
+          ? 'rounded-md border bg-background border ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2'
+          : 'fixed inset-0 z-50 bg-background/80 backdrop-blur-sm'
+      )}
+    >
       {editor && (
         <>
-          <DragHandleReact 
-            pluginKey="dragHandle"
-            editor={editor} 
-            className="handle-wrapper"
-            onNodeChange={({ pos }) => setHoveredPos(pos)}
-            computePositionConfig={{
-                placement: 'left-start',
-                middleware: [
-                  offset({ mainAxis: 12, crossAxis: 4 }), // Adjust position relative to the line
-                  shift({ padding: 10 }), // Ensure it stays within view
-                ],
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn('absolute z-10 h-8 w-8 p-2', {
+              'top-2 right-2': !distractionFree,
+              'top-4 right-4': distractionFree,
+            })}
+            onClick={() => setDistractionFree(!distractionFree)}
+            title={distractionFree ? 'Show editor UI' : 'Distraction-free mode'}
+          >
+            {distractionFree ? <Eye size={16} /> : <EyeOff size={16} />}
+          </Button>
+
+          <div className={cn(distractionFree && 'hidden')}>
+            <CustomDragHandle editor={editor} menuOpen={menuOpen} onOpenChange={handleMenuOpenChange} />
+            <EditorBubbleMenu editor={editor} shouldShow={() => !(editor.state.selection instanceof CellSelection)} />
+            <TableQuickAddMenu editor={editor} isCellMenuOpen={isCellMenuOpen} />
+            <TableRowColMenu editor={editor} editorRef={editorRef} />
+          </div>
+
+          {menuPosition && (
+            <div
+              style={{
+                position: 'absolute',
+                top: menuPosition.top,
+                left: menuPosition.left,
+                zIndex: 30,
+                transform: 'translate(-50%, -66%)',
               }}
-          >
-            <div contentEditable={false} className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="add-button"
-                      onClick={() => {
-                        const endPos = editor.state.selection.$from.end();
-                        editor.chain().focus().insertContentAt(endPos, '<p></p>').run();
-                      }}
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-center">Add Block Below</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-                <PopoverAnchor asChild>
-                  <div 
-                    ref={dragHandleRef}
-                    className="drag-handle-wrapper cursor-pointer" 
-                    onPointerDown={handlePointerDown}
-                  >
-                    <GripVertical size={18} />
-                  </div>
-                </PopoverAnchor>
-                <PopoverContent 
-                  onInteractOutside={(e) => {
-                    if (dragHandleRef.current?.contains(e.target as Node)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  className="w-auto p-1"
-                >
-                  <button onClick={handleDuplicate} className="flex items-center w-full text-left p-2 rounded-sm hover:bg-accent">
-                    <Copy className="mr-2 h-4 w-4" />
-                    <span>Duplicate</span>
-                  </button>
-                  <button onClick={handleCopy} className="flex items-center w-full text-left p-2 rounded-sm hover:bg-accent">
-                    <Clipboard className="mr-2 h-4 w-4" />
-                    <span>Copy to clipboard</span>
-                  </button>
-                  <button onClick={handleDelete} className="flex items-center w-full text-left p-2 rounded-sm hover:bg-accent text-red-500">
-                    <Trash className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                  </button>
-                </PopoverContent>
-              </Popover>
+            >
+              <CellMenu editor={editor} isOpen={isCellMenuOpen} onOpenChange={setIsCellMenuOpen} />
             </div>
-          </DragHandleReact>
-
-          <BubbleMenu 
-            editor={editor} 
-            className="bg-white dark:bg-gray-800 p-2 rounded-md shadow-md border border-gray-200 dark:border-gray-700 flex gap-1 items-center"
-          >
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleBold().run();
-                }}
-                className={`p-1 rounded ${editor.isActive('bold') ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <BoldIcon className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleItalic().run();
-                }}
-                className={`p-1 rounded ${editor.isActive('italic') ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <ItalicIcon className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleStrike().run();
-                }}
-                className={`p-1 rounded ${editor.isActive('strike') ? 'bg-gray-200 dark:bg-ray-700' : ''}`}>
-                <Strikethrough className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleHeading({ level: 1 }).run()
-                }}
-                className={`p-1 rounded ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <Heading1 className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleHeading({ level: 2 }).run()
-                }}
-                className={`p-1 rounded ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <Heading2 className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleHeading({ level: 3 }).run()
-                }}
-                className={`p-1 rounded ${editor.isActive('heading', { level: 3 }) ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <Heading3 className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  editor.chain().focus().toggleBlockquote().run()
-                }}
-                className={`p-1 rounded ${editor.isActive('blockquote') ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <Quote className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  const url = window.prompt('URL');
-                  if (url) {
-                    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-                  }
-                }}
-                className={`p-1 rounded ${editor.isActive('link') ? 'bg-gray-200 dark:bg-gray-700' : ''}`}>
-                <LinkIcon className="w-5 h-5" />
-              </button>
-          </BubbleMenu>
+          )}
         </>
       )}
 
-      <EditorContent editor={editor} />
+      <div
+        className={cn({
+          'h-full overflow-y-auto': distractionFree,
+        })}
+      >
+        <div
+          className={cn(
+            'prose dark:prose-invert prose-headings:font-display font-default focus:outline-none max-w-full',
+            {
+              'mx-auto max-w-3xl py-16': distractionFree,
+            }
+          )}
+        >
+          <EditorContent editor={editor} />
+        </div>
+      </div>
 
       {editor && (
-        <div className="flex justify-end text-sm text-gray-500 mt-1">
-          <span>
-            {editor.storage.characterCount.characters()} characters / {editor.storage.characterCount.words()} words
-          </span>
+        <div className={cn(distractionFree && 'hidden')}>
+          <EditorCharacterCount editor={editor} />
         </div>
       )}
     </div>

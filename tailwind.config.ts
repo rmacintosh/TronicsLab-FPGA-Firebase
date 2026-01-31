@@ -106,6 +106,13 @@ export default {
             pre: false,
           },
         },
+        lg: {
+          css: {
+            h1: {
+              fontSize: '2.125rem',
+            },
+          },
+        },
       }),
     },
   },

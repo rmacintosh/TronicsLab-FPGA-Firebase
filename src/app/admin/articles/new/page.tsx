@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -10,7 +9,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import TiptapEditor from '@/components/tiptap-editor';
 import { useData } from '@/components/providers/data-provider';
 import { useFirebase } from '@/firebase/provider';
 import { useRouter } from 'next/navigation';
@@ -21,6 +19,16 @@ import Image from 'next/image';
 import { X, Plus } from 'lucide-react';
 import { uploadImage, deleteImage } from '@/lib/image-upload';
 import { getFirestore, doc, collection } from 'firebase/firestore';
+import dynamic from 'next/dynamic';
+
+// ** THE FIX **: Dynamically import the TiptapEditor with SSR disabled.
+// This prevents a layout timing issue where the editor initializes before its container has its final dimensions.
+const TiptapEditor = dynamic(() => import('@/components/tiptap-editor'), {
+  ssr: false,
+  loading: () => (
+    <div className="prose dark:prose-invert w-full max-w-none prose-sm sm:prose-base lg:prose-lg xl:prose-2xl focus:outline-none border border-gray-300 rounded-md p-2 pl-20 min-h-[200px]" />
+  ),
+});
 
 const articleSchema = z.object({
   title: z.string().min(10, 'Title must be at least 10 characters'),

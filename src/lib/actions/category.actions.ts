@@ -2,6 +2,7 @@
 'use server';
 
 import { adminFirestore } from '@/firebase/admin';
+import { Article } from '@/lib/types';
 import { Category } from '@/lib/server-types';
 import { revalidatePath } from 'next/cache';
 import { Firestore, QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore';
@@ -187,13 +188,14 @@ export async function updateCategoryAction(authToken: string, categoryId: string
 
     try {
         await adminFirestore.runTransaction(async (transaction: Transaction) => {
+            const categoryRef = adminFirestore.collection('categories').doc(categoryId);
+
+            // Validation for parent change
             if (category.parentId) {
                 if (categoryId === category.parentId) {
                     throw new Error("A category cannot be its own parent.");
                 }
-                const categoriesSnapshot = await transaction.get(adminFirestore.collection('categories'));
-                const allCategories = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-
+                const allCategories = await getAllCategories(transaction);
                 const descendantIds = getAllDescendantIds(categoryId, allCategories);
                 if (descendantIds.includes(category.parentId)) {
                     throw new Error("A category cannot be moved to be a child of its own descendant.");
@@ -201,12 +203,29 @@ export async function updateCategoryAction(authToken: string, categoryId: string
             }
 
             const updateData = sanitizeCategory(category);
-
-            const categoryRef = adminFirestore.collection('categories').doc(categoryId);
             transaction.update(categoryRef, updateData);
+
+            // Find and update all articles in this category
+            const articlesQuery = adminFirestore.collection('articles').where('categoryId', '==', categoryId);
+            const articlesSnapshot = await transaction.get(articlesQuery);
+
+            if (!articlesSnapshot.empty) {
+                const articleUpdatePayload = {
+                    categoryName: updateData.name,
+                    categorySlug: updateData.slug,
+                };
+                articlesSnapshot.docs.forEach(doc => {
+                    transaction.update(doc.ref, articleUpdatePayload);
+                });
+            }
         });
 
         revalidatePath('/admin/categories');
+        revalidatePath('/');
+        if (category.slug) {
+            revalidatePath(`/categories/${category.slug}`);
+        }
+
         return { success: true, message: 'Category updated successfully.' };
 
     } catch (error: any) {
@@ -259,6 +278,8 @@ export async function batchUpdateCategoriesAction(token: string, initialCategori
         return { success: false, message: error || 'Authorization failed.' };
     }
 
+    const changedCategories: {id: string, name: string, slug: string}[] = [];
+
     try {
         await adminFirestore.runTransaction(async (transaction) => {
             const dbCategories = await getAllCategories(transaction);
@@ -267,44 +288,72 @@ export async function batchUpdateCategoriesAction(token: string, initialCategori
             const initialIds = new Set(initialCategories.map(c => c.id));
             const workingIds = new Set(workingCategories.map(c => c.id));
 
+            // Deletions
             for (const id of initialIds) {
                 if (!workingIds.has(id)) {
                     const categoryToDelete = dbCategoriesMap.get(id);
-                    if (categoryToDelete && categoryToDelete.articleCount && categoryToDelete.articleCount > 0) {
+                    if (categoryToDelete?.articleCount && categoryToDelete.articleCount > 0) {
                         throw new Error(`Cannot delete category "${categoryToDelete.name}" because it contains articles. Please move them first.`);
                     }
                     transaction.delete(adminFirestore.collection('categories').doc(id));
                 }
             }
 
+            // Updates and Creations
+            const initialCategoriesMap = new Map(initialCategories.map(c => [c.id, c]));
             for (const category of workingCategories) {
                 const ref = adminFirestore.collection('categories').doc(category.id);
                 const sanitizedData = sanitizeCategory(category);
-
                 const existingCategory = dbCategoriesMap.get(category.id);
-                if (existingCategory) {
-                    // Preserve existing articleCount on update
-                    transaction.set(ref, { 
+                const initialCategory = initialCategoriesMap.get(category.id);
+
+                if (existingCategory) { // Update
+                    transaction.set(ref, {
                         ...sanitizedData,
-                        articleCount: existingCategory.articleCount 
+                        articleCount: existingCategory.articleCount
                     });
-                } else {
-                    // Initialize articleCount for new categories
-                    transaction.set(ref, { 
-                        ...sanitizedData, 
-                        articleCount: 0 
+                    
+                    if (initialCategory && (initialCategory.name !== category.name || initialCategory.slug !== category.slug)) {
+                        changedCategories.push({id: category.id, name: category.name!, slug: category.slug!});
+                    }
+                } else { // Create
+                    transaction.set(ref, {
+                        ...sanitizedData,
+                        articleCount: 0
+                    });
+                }
+            }
+
+            // Propagate changes to articles
+            for (const changedCategory of changedCategories) {
+                const articlesQuery = adminFirestore.collection('articles').where('categoryId', '==', changedCategory.id);
+                const articlesSnapshot = await transaction.get(articlesQuery);
+                
+                if (!articlesSnapshot.empty) {
+                    const articleUpdatePayload = {
+                        categoryName: changedCategory.name,
+                        categorySlug: changedCategory.slug,
+                    };
+                    articlesSnapshot.docs.forEach(doc => {
+                        transaction.update(doc.ref, articleUpdatePayload);
                     });
                 }
             }
         });
 
         revalidatePath('/admin/categories');
+        revalidatePath('/');
+        changedCategories.forEach(cat => {
+            if(cat.slug) revalidatePath(`/categories/${cat.slug}`);
+        })
+
         return { success: true, message: 'Categories updated successfully.' };
     } catch (error: any) {
         console.error('Error in batchUpdateCategoriesAction:', error);
         return { success: false, message: error.message || 'An unknown error occurred.' };
     }
 }
+
 
 export async function getCategoryById(id: string): Promise<Category | null> {
     try {

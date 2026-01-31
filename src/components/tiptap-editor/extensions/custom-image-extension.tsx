@@ -51,6 +51,10 @@ const ImageView: FC<any> = ({ editor, node, updateAttributes }) => {
 
   const onResize = useCallback(
     (entries: ResizeObserverEntry[]) => {
+      if (node.type.name !== 'image') {
+        return;
+      }
+
       const newWidth = entries[0].borderBoxSize[0].inlineSize;
       if (Math.abs(newWidth - numericWidthRef.current) > 1) {
         requestAnimationFrame(() => {
@@ -58,7 +62,7 @@ const ImageView: FC<any> = ({ editor, node, updateAttributes }) => {
         });
       }
     },
-    [updateAttributes]
+    [updateAttributes, node.type.name]
   );
 
   useEffect(() => {
