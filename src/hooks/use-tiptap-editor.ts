@@ -38,10 +38,10 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import DragHandle from '@tiptap/extension-drag-handle';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
+import Youtube from '@tiptap/extension-youtube';
 
 // Custom Extensions and Components
 import { CustomImage } from '@/components/tiptap-editor/extensions/custom-image-extension';
-import { Youtube } from '@/components/tiptap-editor/extensions/youtube-extension';
 import { CustomCodeBlock } from '@/components/tiptap-editor/extensions/custom-code-block-extension';
 import SlashCommand from '@/components/tiptap-editor/extensions/slash-command';
 import { Duplicate } from '@/components/tiptap-editor/extensions/duplicate-extension';
